@@ -1,0 +1,9 @@
+D:\Documents\Cg\obj\Debug\UnityVS.Cg.CSharp.csprojResolveAssemblyReference.cache
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\Assembly-CSharp.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\Assembly-CSharp.pdb
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEngine.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEngine.xml
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.xml
+D:\Documents\Cg\obj\Debug\Assembly-CSharp.dll
+D:\Documents\Cg\obj\Debug\Assembly-CSharp.pdb

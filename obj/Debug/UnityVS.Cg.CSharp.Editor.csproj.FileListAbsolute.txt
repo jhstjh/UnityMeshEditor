@@ -1,0 +1,12 @@
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\Assembly-CSharp-Editor.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\Assembly-CSharp-Editor.pdb
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\SyntaxTree.VisualStudio.Unity.Bridge.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\SyntaxTree.VisualStudio.Unity.Messaging.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEngine.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityVS.VersionSpecific.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEngine.xml
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.xml
+D:\Documents\Cg\obj\Debug\UnityVS.Cg.CSharp.Editor.csprojResolveAssemblyReference.cache
+D:\Documents\Cg\obj\Debug\Assembly-CSharp-Editor.dll
+D:\Documents\Cg\obj\Debug\Assembly-CSharp-Editor.pdb
