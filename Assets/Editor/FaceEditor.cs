@@ -151,6 +151,13 @@ public class FaceEditor : EditorWindow {
     void OnSceneGUI(SceneView scnView) {
         //return;
         //Debug.Log(Event.current.mousePosition);
+        if (Selection.activeGameObject == null) {
+            // reset tool here
+            selObj = null;
+            mesh = null;
+            selectedFaces.Clear();
+        }
+
         if (editMode == EditMode.Face && mesh != null) {
             HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
             foreach (List<int> selectedFace in selectedFaces) {
@@ -190,11 +197,10 @@ public class FaceEditor : EditorWindow {
                         selectedFaces.Clear();
                     }
                     selectedFaces.Add(selectedFace);
-                    if (selectedFaces.Count == 1) {
-                        handlePos = GetFaceAveragePosition(selectedFaces[0]);
-                        handleRot = selObj.transform.rotation;
-                        handleScale = Vector3.one;
-                    }
+
+                    handlePos = GetFacesAveragePosition(selectedFaces);
+                    handleRot = selObj.transform.rotation;
+                    handleScale = Vector3.one;
                 }
             }
 
@@ -210,15 +216,21 @@ public class FaceEditor : EditorWindow {
 
                 lastHandlePos = handlePos;
                 handlePos = Handles.PositionHandle(handlePos, rot);
-              
+
+
+                HashSet<int> modifiedIndex = new HashSet<int>();
                 if (lastHandlePos != handlePos) {
                     Vector3[] vertices = mesh.vertices;
                     foreach (List<int> face in selectedFaces) {
                         foreach (int vertex in face) {
-                            vertices[vertex] += selObj.transform.InverseTransformDirection(handlePos - GetFaceAveragePosition(selectedFaces[0]));
+                            if (!modifiedIndex.Contains(vertex)) {
+                                vertices[vertex] += selObj.transform.InverseTransformDirection(handlePos - GetFaceAveragePosition(selectedFaces[0]));
+                                modifiedIndex.Add(vertex);
+                            }
                         }
                     }
                     mesh.vertices = vertices;
+                    UpdateMeshCollider();
                 }  
             }
 
@@ -237,19 +249,24 @@ public class FaceEditor : EditorWindow {
                 lastHandleRot = handleRot;
                 handleRot = Handles.RotationHandle(handleRot, handlePos);
                 Debug.Log(handleRot);
-                
+
+                HashSet<int> modifiedIndex = new HashSet<int>();
                 if (lastHandleRot != handleRot) { // does not work!
-                    Debug.Log("Rotate");
+                    //Debug.Log("Rotate");
                     Vector3[] vertices = mesh.vertices;
                     foreach (List<int> face in selectedFaces) {
                         foreach (int vertex in face) {
-                            Vector3 centerToVert = selObj.transform.TransformPoint(vertices[vertex]) - handlePos;
-                            Quaternion oldToNewRot = handleRot * Quaternion.Inverse(lastHandleRot);
-                            Vector3 newCenterToVert = oldToNewRot * centerToVert;
-                            vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos + newCenterToVert);
+                            if (!modifiedIndex.Contains(vertex)) {
+                                Vector3 centerToVert = selObj.transform.TransformPoint(vertices[vertex]) - handlePos;
+                                Quaternion oldToNewRot = handleRot * Quaternion.Inverse(lastHandleRot);
+                                Vector3 newCenterToVert = oldToNewRot * centerToVert;
+                                vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos + newCenterToVert);
+                                modifiedIndex.Add(vertex);
+                            }
                         }
                     }
                     mesh.vertices = vertices;
+                    UpdateMeshCollider();
                 }
                 
             }
@@ -269,20 +286,24 @@ public class FaceEditor : EditorWindow {
                 //Debug.Log(handleScale);
 
                 if (lastHandleScale != handleScale) {
-                    Debug.Log("scale!");
+                    HashSet<int> modifiedIndex = new HashSet<int>();
                     
                     Vector3[] vertices = mesh.vertices;
                     foreach (List<int> face in selectedFaces) {
                         foreach (int vertex in face) {
-                            Vector3 centerToVert = vertices[vertex] - selObj.transform.InverseTransformPoint(handlePos);
-                            centerToVert.x *= (handleScale.x / lastHandleScale.x);
-                            centerToVert.y *= (handleScale.y / lastHandleScale.y);
-                            centerToVert.z *= (handleScale.z / lastHandleScale.z);
+                            if (!modifiedIndex.Contains(vertex)) {
+                                Vector3 centerToVert = vertices[vertex] - selObj.transform.InverseTransformPoint(handlePos);
+                                centerToVert.x *= (handleScale.x / lastHandleScale.x);
+                                centerToVert.y *= (handleScale.y / lastHandleScale.y);
+                                centerToVert.z *= (handleScale.z / lastHandleScale.z);
 
-                            vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos) + centerToVert;
+                                vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos) + centerToVert;
+                                modifiedIndex.Add(vertex);
+                            }
                         }
                     }
                     mesh.vertices = vertices;
+                    UpdateMeshCollider();
                 }
             }
 
@@ -290,8 +311,25 @@ public class FaceEditor : EditorWindow {
         }
     }
 
+    Vector3 GetFacesAveragePosition(List<List<int>> faces) {
+        Vector3 pos = Vector3.zero;
+        foreach (List<int> face in faces) {
+            pos += GetFaceAveragePosition(face);
+        }
+        return pos / faces.Count;
+    }
+
     Vector3 GetFaceAveragePosition(List<int> face) {
         return (selObj.transform.TransformPoint(mesh.vertices[face[0]]) + selObj.transform.TransformPoint(mesh.vertices[face[1]]) + selObj.transform.TransformPoint(mesh.vertices[face[2]])) / 3;
+    }
+
+
+    Vector3 GetFacesNormal(List<List<int>> faces) {
+        Vector3 pos = Vector3.zero;
+        foreach (List<int> face in faces) {
+            pos += GetFaceNormal(face);
+        }
+        return pos / faces.Count;
     }
 
     Vector3 GetFaceNormal(List<int> face) {
@@ -301,6 +339,10 @@ public class FaceEditor : EditorWindow {
         return Vector3.Cross(edge1, edge2).normalized;
     }
 
+    void UpdateMeshCollider() {
+        selObj.GetComponent<MeshCollider>().sharedMesh = null;
+        selObj.GetComponent<MeshCollider>().sharedMesh = mesh;
+    }
 
     void ChangeMaterial() {
         
