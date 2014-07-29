@@ -46,7 +46,8 @@
 	</Reference>
   </ItemGroup>
   <ItemGroup>
-     <Compile Include="Assets\Script\FaceEditor.cs" />
+     <Compile Include="Assets\Script\SetRenderQueue.cs" />
+     <None Include="Assets\Shader\DepthMask.shader" />
      <None Include="Assets\Shader\Test.shader" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

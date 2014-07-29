@@ -4,24 +4,35 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Linq;
+using System;
 
 //[ExecuteInEditMode]
 public class FaceEditor : EditorWindow {
 
-    //static GameObject obj;
     bool skinedMesh = true;
     bool createNewMaterial = true;
+    bool movingFace = false;
     string colliderSizeString;
-    GameObject selObj;
-    Mesh mesh;
+    [SerializeField]
+    GameObject selObj = null;
+    Mesh mesh = null;
     bool hasMeshCollider = false;
     bool succeed = false;
     bool prepared = false;
     List<int> triangleIndices;
     List<List<List<int>>> realTriangleArrayWithSubMeshSeparated = new List<List<List<int>>>();
-    //static List<List<int>> realTriangleArray = new List<List<int>>();
     List<List<int>> selectedFaces = new List<List<int>>();
+    Material assignedMat = null;
 
+    EditMode editMode = EditMode.Object;
+
+    [Flags]
+    enum EditMode {
+        Object  = 0,
+        Vertex  = 1,
+        Edge    = 2,
+        Face    = 3
+    }
 
 
     [MenuItem("Mesh Editor/Face Editor")]
@@ -36,19 +47,19 @@ public class FaceEditor : EditorWindow {
             GUILayout.Label("Separate Selected Mesh");
             GUILayout.BeginHorizontal();
 
-            if (GUILayout.Button("Face Editing Mode")) {
-                FaceEditMode();
+            editMode = (EditMode)EditorGUILayout.EnumPopup("Edit Mode", editMode);
+            if (GUILayout.Button("Edit")) {
+                if (editMode == EditMode.Face)
+                    FaceEditMode();
             }
-            skinedMesh = GUILayout.Toggle(skinedMesh, "Create New Mesh");
+            //skinedMesh = GUILayout.Toggle(skinedMesh, "Create New Mesh");
             GUILayout.EndHorizontal();
-            GUILayout.Label("(Please don't touch anything in Scene \nbefore finishing the whole process)", GUILayout.Width(300));
+            //GUILayout.Label("(Please don't touch anything in Scene \nbefore finishing the whole process)", GUILayout.Width(300));
             GUILayout.Space(10);
-
+            
             GUILayout.BeginVertical();
             //GUI.enabled = succeed;
             GUILayout.Label("Change material for selected faces");
-            GUILayout.BeginHorizontal();
-
             if (GUILayout.Button("Change Material")) {
                 ChangeMaterial();
             }
@@ -56,8 +67,11 @@ public class FaceEditor : EditorWindow {
             if (createNewMaterial) {
 
             }
+            else {
+                assignedMat = EditorGUILayout.ObjectField("Material to use", assignedMat, typeof(Material), true) as Material;
+            }
+            movingFace = GUILayout.Toggle(movingFace, "Move Mode");
 
-            GUILayout.EndHorizontal();
             //GUI.enabled = prepared;
             GUILayout.Space(10);
             GUILayout.Label("Save and link prefab to current object");
@@ -101,9 +115,10 @@ public class FaceEditor : EditorWindow {
         }
     }
 
-    void OnSceneGUI(SceneView scnView) {
-        //Debug.Log(Event.current.mousePosition);
-        if (mesh != null) {
+
+    void Update() {
+        return;
+        if (editMode == EditMode.Face && mesh != null) {
             HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
             foreach (List<int> selectedFace in selectedFaces) {
                 GL.Begin(GL.TRIANGLES);
@@ -145,6 +160,73 @@ public class FaceEditor : EditorWindow {
                 }
             }
         }
+    }
+
+
+    void OnSceneGUI(SceneView scnView) {
+        //return;
+        //Debug.Log(Event.current.mousePosition);
+        if (editMode == EditMode.Face && mesh != null) {
+            HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
+            foreach (List<int> selectedFace in selectedFaces) {
+                GL.Begin(GL.TRIANGLES);
+                GL.Color(new Color(1, 1, 0, 0.5f));
+                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[0]]));
+                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[1]]));
+                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]));
+                GL.End();
+            }
+            Ray worldRay = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
+            RaycastHit hitInfo;
+            if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
+                Debug.Log(hitInfo.triangleIndex);
+
+                GL.Begin(GL.TRIANGLES);
+                GL.Color(new Color(1, 0, 0, 0.5f));
+                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]));
+                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]));
+                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]));
+                GL.End();
+
+                if (Event.current.type == EventType.MouseDown) {
+                    List<int> selectedFace = new List<int>();
+                    selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
+                    selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
+                    selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
+
+                    for (int i = 0; i < selectedFaces.Count; i++) {
+                        // if it already exists, remove it from selection
+                        if (selectedFace.SequenceEqual(selectedFaces[i])) {
+                            selectedFaces.RemoveAt(i);
+                            break;
+                        }
+                    }
+                    if (!Event.current.control) {
+                        selectedFaces.Clear();
+                    }
+                    selectedFaces.Add(selectedFace);
+                }
+            }
+
+            if (movingFace && selectedFaces.Count != 0) {
+                Vector3 normalDir = GetFaceNormal(selectedFaces[0]);
+                Quaternion rot = Quaternion.LookRotation(normalDir);
+
+                Handles.ArrowCap(0, GetFaceAveragePosition(selectedFaces[0]), rot, 2f);
+            }
+            HandleUtility.Repaint();
+        }
+    }
+
+    Vector3 GetFaceAveragePosition(List<int> face) {
+        return (selObj.transform.TransformPoint(mesh.vertices[face[0]]) + selObj.transform.TransformPoint(mesh.vertices[face[1]]) + selObj.transform.TransformPoint(mesh.vertices[face[2]])) / 3;
+    }
+
+    Vector3 GetFaceNormal(List<int> face) {
+        Vector3 edge1 = selObj.transform.TransformPoint(mesh.vertices[face[1]]) - selObj.transform.TransformPoint(mesh.vertices[face[0]]);
+        Vector3 edge2 = selObj.transform.TransformPoint(mesh.vertices[face[2]]) - selObj.transform.TransformPoint(mesh.vertices[face[1]]);
+
+        return Vector3.Cross(edge1, edge2).normalized;
     }
 
 
@@ -198,12 +280,18 @@ public class FaceEditor : EditorWindow {
         List<Material> materials = new List<Material>();
         materials.AddRange(selObj.renderer.sharedMaterials);
 
-        Material newMat = new Material(Shader.Find("Diffuse"));
-        AssetDatabase.CreateAsset(newMat, "Assets/Material/newMat_" + newMesh.subMeshCount + ".mat");
-        AssetDatabase.Refresh();
-        newMat.color = Color.blue;
+        if (!createNewMaterial && assignedMat != null) {
+            materials.Add(assignedMat);
+            
+        }
+        else {
+            Material newMat = new Material(Shader.Find("Diffuse"));
+            AssetDatabase.CreateAsset(newMat, "Assets/Material/newMat_" + newMesh.subMeshCount + ".mat");
+            AssetDatabase.Refresh();
+            newMat.color = Color.blue;
 
-        materials.Add(newMat);
+            materials.Add(newMat);
+        }
 
         newMesh.Optimize();
 
@@ -223,12 +311,19 @@ public class FaceEditor : EditorWindow {
         mesh = null;
     }
 
+    void MoveFace() {
+
+    }
+
     void OnFocus() {
         SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
         SceneView.onSceneGUIDelegate += this.OnSceneGUI;
+        EditorApplication.update -= Update;
+        EditorApplication.update += Update;
     }
 
     void OnDestroy() {
         SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
+        EditorApplication.update -= Update;
     }
 }

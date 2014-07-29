@@ -57,8 +57,16 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="UnityVS.Cg.CSharp.csproj">
+      <Project>{97533258-00C7-31B2-88F9-76CAF301146D}</Project>
+      <Name>UnityVS.Cg.CSharp</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="Assets\Editor\FaceEditor.cs" />
+    <None Include="Assets\Shader\DepthMask.shader" />
     <None Include="Assets\Shader\Test.shader" />
+    <None Include="Assets\Standard Assets\Skyboxes\_skybox info.txt" />
     <None Include="Assets\UnityVS\Editor\SyntaxTree.VisualStudio.Unity.Bridge.dll" />
     <None Include="Assets\UnityVS\Editor\SyntaxTree.VisualStudio.Unity.Messaging.dll" />
     <None Include="Assets\UnityVS\Editor\UnityVS.VersionSpecific.dll" />
