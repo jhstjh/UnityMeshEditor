@@ -309,6 +309,17 @@ public class FaceEditor : EditorWindow {
 
             HandleUtility.Repaint();
         }
+
+        Handles.BeginGUI();
+
+        GUILayout.Window(2, new Rect(Screen.width - 110, Screen.height - 130, 100, 100), (id) => {
+            // Content of window here
+            GUILayout.Button(EditorGUIUtility.Load("Move.png") as Texture);
+            GUILayout.Button("Rotate");
+            GUILayout.Button("Scale");
+        }, "Toolbox");
+
+        Handles.EndGUI();
     }
 
     Vector3 GetFacesAveragePosition(List<List<int>> faces) {
