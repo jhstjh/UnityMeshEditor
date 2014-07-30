@@ -20,6 +20,8 @@ public class FaceEditor : EditorWindow {
     bool hasMeshCollider = false;
     bool succeed = false;
     bool prepared = false;
+    bool rmbHold = false;
+    Vector2 rmbMousePos;
 
     int moveCoord = 0;
     Vector3 lastHandlePos;
@@ -145,7 +147,12 @@ public class FaceEditor : EditorWindow {
         }
     }
 
+
     void OnSceneGUI(SceneView scnView) {
+        Event evt = Event.current;
+        HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
+
+        DrawToolBar();
 
         if (Selection.activeGameObject == null) {
             // reset tool here
@@ -154,163 +161,235 @@ public class FaceEditor : EditorWindow {
             selectedFaces.Clear();
         }
 
-        if (editMode == EditMode.Face && mesh != null) {
-            HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
-            if (Event.current.isKey) {
-                HandleHotKey(Event.current);
-            }
-         
-            foreach (List<int> selectedFace in selectedFaces) {
-                GL.Begin(GL.TRIANGLES);
-                GL.Color(new Color(1, 1, 0, 0.5f));
-                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[0]]));
-                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[1]]));
-                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]));
-                GL.End();
-            }
+        //bool hasHeld = false;
 
-
-            Ray worldRay = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
-            RaycastHit hitInfo;
-            if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
-                //Debug.Log(hitInfo.triangleIndex);
-
-                GL.Begin(GL.TRIANGLES);
-                GL.Color(new Color(1, 0, 0, 0.5f));
-                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]));
-                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]));
-                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]));
-                GL.End();
-
-                if (Event.current.type == EventType.MouseDown) {
-                    List<int> selectedFace = new List<int>();
-                    selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
-                    selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
-                    selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
-
-                    for (int i = 0; i < selectedFaces.Count; i++) {
-                        // if it already exists, remove it from selection
-                        if (selectedFace.SequenceEqual(selectedFaces[i])) {
-                            selectedFaces.RemoveAt(i);
-                            break;
-                        }
-                    }
-                    if (!Event.current.control) {
-                        selectedFaces.Clear();
-                    }
-                    selectedFaces.Add(selectedFace);
-
-                    handlePos = GetFacesAveragePosition(selectedFaces);
-                    handleRot = selObj.transform.rotation;
-                    handleScale = Vector3.one;
+        if (evt.isMouse) {
+            if (evt.button == 1) {
+                if (rmbHold == false) {
+                    rmbMousePos = evt.mousePosition;
+                    rmbHold = true;
+                    evt.Use();
                 }
             }
-
-            if (movingFace && selectedFaces.Count != 0) {
-                Quaternion rot = new Quaternion();
-
-                if (moveCoord == 0)
-                    rot = selObj.transform.rotation;
-                else if (moveCoord == 1)
-                    rot = Quaternion.identity;
-                else if (moveCoord == 2)
-                    rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
-
-                lastHandlePos = handlePos;
-                handlePos = Handles.PositionHandle(handlePos, rot);
-
-                HashSet<int> modifiedIndex = new HashSet<int>();
-                if (lastHandlePos != handlePos) {
-                    Vector3[] vertices = mesh.vertices;
-                    foreach (List<int> face in selectedFaces) {
-                        foreach (int vertex in face) {
-                            if (!modifiedIndex.Contains(vertex)) {
-                                vertices[vertex] += selObj.transform.InverseTransformDirection(handlePos - GetFaceAveragePosition(selectedFaces[0]));
-                                modifiedIndex.Add(vertex);
-                            }
-                        }
-                    }
-                    mesh.vertices = vertices;
-                    UpdateMeshCollider();
-                }  
-            }
-
-            else if (rotFace && selectedFaces.Count != 0) {
-                // not just work out of box
-                // need transformation to different coord and maintain offset
-                /*
-                if (rotCoord == 0)
-                    rot = selObj.transform.rotation;
-                else if (rotCoord == 1)
-                    rot = Quaternion.identity;
-                else if (rotCoord == 2)
-                    rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
-                */
-
-                lastHandleRot = handleRot;
-                handleRot = Handles.RotationHandle(handleRot, handlePos);
-                //Debug.Log(handleRot);
-
-                HashSet<int> modifiedIndex = new HashSet<int>();
-                if (lastHandleRot != handleRot) { // does not work!
-                    //Debug.Log("Rotate");
-                    Vector3[] vertices = mesh.vertices;
-                    foreach (List<int> face in selectedFaces) {
-                        foreach (int vertex in face) {
-                            if (!modifiedIndex.Contains(vertex)) {
-                                Vector3 centerToVert = selObj.transform.TransformPoint(vertices[vertex]) - handlePos;
-                                Quaternion oldToNewRot = handleRot * Quaternion.Inverse(lastHandleRot);
-                                Vector3 newCenterToVert = oldToNewRot * centerToVert;
-                                vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos + newCenterToVert);
-                                modifiedIndex.Add(vertex);
-                            }
-                        }
-                    }
-                    mesh.vertices = vertices;
-                    UpdateMeshCollider();
-                }
-                
-            }
-
-            else if (scaleFace && selectedFaces.Count != 0) {
-                Quaternion rot = new Quaternion();
-
-                if (scaleCoord == 0)
-                    rot = selObj.transform.rotation;
-                else if (scaleCoord == 1)
-                    rot = Quaternion.identity;
-                else if (scaleCoord == 2) 
-                    rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
-
-                lastHandleScale = handleScale;
-                handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, 2.5f);
-                //Debug.Log(handleScale);
-
-                if (lastHandleScale != handleScale) {
-                    HashSet<int> modifiedIndex = new HashSet<int>();
+            else {
+                if (rmbHold == true) {
+                    rmbHold = false;
                     
-                    Vector3[] vertices = mesh.vertices;
-                    foreach (List<int> face in selectedFaces) {
-                        foreach (int vertex in face) {
-                            if (!modifiedIndex.Contains(vertex)) {
-                                Vector3 centerToVert = vertices[vertex] - selObj.transform.InverseTransformPoint(handlePos);
-                                centerToVert.x *= (handleScale.x / lastHandleScale.x);
-                                centerToVert.y *= (handleScale.y / lastHandleScale.y);
-                                centerToVert.z *= (handleScale.z / lastHandleScale.z);
+                    Rect vertexRect = new Rect(rmbMousePos.x - 100, rmbMousePos.y, 50, 20);
+                    Rect edgeRect = new Rect(rmbMousePos.x, rmbMousePos.y - 50, 50, 20);
+                    Rect faceRect = new Rect(rmbMousePos.x + 100, rmbMousePos.y, 50, 20);
+                    Rect objRect = new Rect(rmbMousePos.x, rmbMousePos.y + 50, 50, 20);
 
-                                vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos) + centerToVert;
-                                modifiedIndex.Add(vertex);
-                            }
-                        }
-                    }
-                    mesh.vertices = vertices;
-                    UpdateMeshCollider();
+                    
+                    if (vertexRect.Contains(evt.mousePosition))
+                        editMode = EditMode.Vertex;
+                    else if (edgeRect.Contains(evt.mousePosition))
+                        editMode = EditMode.Edge;
+                    else if (faceRect.Contains(evt.mousePosition))
+                        editMode = EditMode.Face;
+                    else if (objRect.Contains(evt.mousePosition))
+                        editMode = EditMode.Object;
+                    HandleUtility.Repaint();
                 }
             }
+        }
+
+        //else if (evt.type == EventType.Layout) {
+            if (rmbHold && selObj != null) {
+                //Debug.Log(rmbMousePos);
+                GL.PushMatrix();
+                GL.LoadOrtho();
+                GL.Begin(GL.LINES);
+                GL.Color(Color.white);
+                GL.Vertex(new Vector3(rmbMousePos.x / Screen.width, 1 - rmbMousePos.y / Screen.height, 0));
+                GL.Vertex(new Vector3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0));
+                GL.End();
+                GL.PopMatrix();
+
+                HandleUtility.Repaint();
+
+                Handles.BeginGUI();
+                GUILayout.Window(6, new Rect(rmbMousePos.x - 100, rmbMousePos.y, 50, 20), (subid) => { GUILayout.Label("Vertex"); }, " ");
+                GUILayout.Window(7, new Rect(rmbMousePos.x, rmbMousePos.y - 50, 50, 20), (subid) => { GUILayout.Label("Edge"); }, " ");
+                GUILayout.Window(8, new Rect(rmbMousePos.x + 100, rmbMousePos.y, 50, 20), (subid) => { GUILayout.Label("Face"); }, " ");
+                GUILayout.Window(9, new Rect(rmbMousePos.x, rmbMousePos.y + 50, 50, 20), (subid) => { GUILayout.Label("Object"); }, " ");
+                Handles.EndGUI();
+            }
+        //}
+
+
+        if (editMode == EditMode.Face && mesh != null) {
+            if (evt.isKey) {
+                HandleHotKey(evt);
+            }
+            HighlightSelectedFaces();
+            HandleFaceSelection(Event.current);
+
+            if (movingFace && selectedFaces.Count != 0) 
+                MoveFace();
+            else if (rotFace && selectedFaces.Count != 0) 
+                RotateFace();   
+            else if (scaleFace && selectedFaces.Count != 0) 
+                ScaleFace();
 
             HandleUtility.Repaint();
         }
+    }
 
+    void HandleFaceSelection(Event evt) {
+        Ray worldRay = HandleUtility.GUIPointToWorldRay(evt.mousePosition);
+        RaycastHit hitInfo;
+        if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
+            //Debug.Log(hitInfo.triangleIndex);
+
+            GL.Begin(GL.TRIANGLES);
+            GL.Color(new Color(1, 0, 0, 0.5f));
+            GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]));
+            GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]));
+            GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]));
+            GL.End();
+
+            if (evt.type == EventType.MouseDown) {
+                List<int> selectedFace = new List<int>();
+                selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
+                selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
+                selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
+
+                bool removed = false;
+                for (int i = 0; i < selectedFaces.Count; i++) {
+                    // if it already exists, remove it from selection, not working? TODO
+                    if (selectedFace.SequenceEqual(selectedFaces[i])) {
+                        selectedFaces.RemoveAt(i);
+                        removed = true;
+                    }
+                }
+                if (!Event.current.control) {
+                    selectedFaces.Clear();
+                }
+
+                if (!removed)
+                    selectedFaces.Add(selectedFace);
+
+                handlePos = GetFacesAveragePosition(selectedFaces);
+                handleRot = selObj.transform.rotation;
+                handleScale = Vector3.one;
+            }
+        }
+    }
+
+    void HighlightSelectedFaces() {
+        foreach (List<int> selectedFace in selectedFaces) {
+            GL.Begin(GL.TRIANGLES);
+            GL.Color(new Color(1, 1, 0, 0.5f));
+            GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[0]]));
+            GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[1]]));
+            GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]));
+            GL.End();
+        }
+    }
+
+    void MoveFace() {
+        Quaternion rot = new Quaternion();
+
+        if (moveCoord == 0)
+            rot = selObj.transform.rotation;
+        else if (moveCoord == 1)
+            rot = Quaternion.identity;
+        else if (moveCoord == 2)
+            rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
+
+        lastHandlePos = handlePos;
+        handlePos = Handles.PositionHandle(handlePos, rot);
+
+        HashSet<int> modifiedIndex = new HashSet<int>();
+        if (lastHandlePos != handlePos) {
+            Vector3[] vertices = mesh.vertices;
+            foreach (List<int> face in selectedFaces) {
+                foreach (int vertex in face) {
+                    if (!modifiedIndex.Contains(vertex)) {
+                        vertices[vertex] += selObj.transform.InverseTransformDirection(handlePos - lastHandlePos);
+                        modifiedIndex.Add(vertex);
+                    }
+                }
+            }
+            mesh.vertices = vertices;
+            UpdateMeshCollider();
+        }  
+    }
+
+    void RotateFace() {
+        // not just work out of box
+        // need transformation to different coord and maintain offset
+        /*
+        if (rotCoord == 0)
+            rot = selObj.transform.rotation;
+        else if (rotCoord == 1)
+            rot = Quaternion.identity;
+        else if (rotCoord == 2)
+            rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
+        */
+
+        lastHandleRot = handleRot;
+        handleRot = Handles.RotationHandle(handleRot, handlePos);
+        //Debug.Log(handleRot);
+
+        HashSet<int> modifiedIndex = new HashSet<int>();
+        if (lastHandleRot != handleRot) { // does not work!
+            //Debug.Log("Rotate");
+            Vector3[] vertices = mesh.vertices;
+            foreach (List<int> face in selectedFaces) {
+                foreach (int vertex in face) {
+                    if (!modifiedIndex.Contains(vertex)) {
+                        Vector3 centerToVert = selObj.transform.TransformPoint(vertices[vertex]) - handlePos;
+                        Quaternion oldToNewRot = handleRot * Quaternion.Inverse(lastHandleRot);
+                        Vector3 newCenterToVert = oldToNewRot * centerToVert;
+                        vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos + newCenterToVert);
+                        modifiedIndex.Add(vertex);
+                    }
+                }
+            }
+            mesh.vertices = vertices;
+            UpdateMeshCollider();
+        }
+    }
+
+    void ScaleFace() {
+        Quaternion rot = new Quaternion();
+
+        if (scaleCoord == 0)
+            rot = selObj.transform.rotation;
+        else if (scaleCoord == 1)
+            rot = Quaternion.identity;
+        else if (scaleCoord == 2)
+            rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
+
+        lastHandleScale = handleScale;
+        handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, 2.5f);
+        //Debug.Log(handleScale);
+
+        if (lastHandleScale != handleScale) {
+            HashSet<int> modifiedIndex = new HashSet<int>();
+
+            Vector3[] vertices = mesh.vertices;
+            foreach (List<int> face in selectedFaces) {
+                foreach (int vertex in face) {
+                    if (!modifiedIndex.Contains(vertex)) {
+                        Vector3 centerToVert = vertices[vertex] - selObj.transform.InverseTransformPoint(handlePos);
+                        centerToVert.x *= (handleScale.x / lastHandleScale.x);
+                        centerToVert.y *= (handleScale.y / lastHandleScale.y);
+                        centerToVert.z *= (handleScale.z / lastHandleScale.z);
+
+                        vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos) + centerToVert;
+                        modifiedIndex.Add(vertex);
+                    }
+                }
+            }
+            mesh.vertices = vertices;
+            UpdateMeshCollider();
+        }
+    }
+
+    void DrawToolBar() {
         Handles.BeginGUI();
 
         GUILayout.Window(2, new Rect(10, 20, 50, 50), (id) => {
@@ -335,7 +414,7 @@ public class FaceEditor : EditorWindow {
             GUILayout.Window(3, new Rect(80, 40, 50, 50), (subid) => {
                 GUILayout.Label("Move Axis:");
                 string[] content = { "Local", "World", "UVN" };
-                moveCoord = GUILayout.SelectionGrid(moveCoord, content, 3, "toggle");   
+                moveCoord = GUILayout.SelectionGrid(moveCoord, content, 3, "toggle");
             }, "Move Tool");
         }
         else if (rotFace) {
@@ -355,9 +434,7 @@ public class FaceEditor : EditorWindow {
 
 
         Handles.EndGUI();
-
     }
-
     Vector3 GetFacesAveragePosition(List<List<int>> faces) {
         Vector3 pos = Vector3.zero;
         foreach (List<int> face in faces) {
@@ -472,11 +549,9 @@ public class FaceEditor : EditorWindow {
         mesh = null;
     }
 
-    void MoveFace() {
-
-    }
 
     void OnFocus() {
+        FaceEditMode();
         SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
         SceneView.onSceneGUIDelegate += this.OnSceneGUI;
     }
