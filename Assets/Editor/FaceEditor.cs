@@ -57,7 +57,7 @@ public class FaceEditor : EditorWindow {
     void OnGUI() {
         GUILayout.BeginVertical();
         {
-            GUILayout.Label("Separate Selected Mesh");
+            GUILayout.Label("Face Editor");
             GUILayout.BeginHorizontal();
 
             editMode = (EditMode)EditorGUILayout.EnumPopup("Edit Mode", editMode);
@@ -83,35 +83,6 @@ public class FaceEditor : EditorWindow {
             else {
                 assignedMat = EditorGUILayout.ObjectField("Material to use", assignedMat, typeof(Material), true) as Material;
             }
-            movingFace = GUILayout.Toggle(movingFace, "Move Tool");
-            if (movingFace) {
-                rotFace = false;
-                scaleFace = false;
-                string[] content = { "Local", "World", "UVN" };
-                moveCoord = GUILayout.SelectionGrid(moveCoord, content, 3, "toggle");
-            }
-            rotFace = GUILayout.Toggle(rotFace, "Rotate Tool");
-            if (rotFace) {
-                movingFace = false;
-                scaleFace = false;
-                string[] content = { "Local", "World", "UVN" };
-                rotCoord = GUILayout.SelectionGrid(rotCoord, content, 3, "toggle");
-            }
-            scaleFace = GUILayout.Toggle(scaleFace, "Scale Tool");
-            if (scaleFace) {
-                movingFace = false;
-                rotFace = false;
-                string[] content = { "Local", "World", "UVN" };
-                scaleCoord = GUILayout.SelectionGrid(scaleCoord, content, 3, "toggle");
-            }
-            //GUI.enabled = prepared;
-            GUILayout.Space(10);
-            GUILayout.Label("Save and link prefab to current object");
-            GUILayout.BeginHorizontal();
-            if (GUILayout.Button("Save & Link")) {
-                //GeneratePrefabAndLink();
-            }
-            GUILayout.EndHorizontal();
 
             GUILayout.EndVertical();
         }
@@ -147,10 +118,35 @@ public class FaceEditor : EditorWindow {
         }
     }
 
+    void HandleHotKey(Event e) {
+        if (e.keyCode == KeyCode.Q) {
+            movingFace = false;
+            rotFace = false;
+            scaleFace = false;
+            e.Use();
+        }
+        else if (e.keyCode == KeyCode.W) {
+            movingFace = true;
+            rotFace = false;
+            scaleFace = false;
+            e.Use();
+        }
+        else if (e.keyCode == KeyCode.E) {
+            movingFace = false;
+            rotFace = true;
+            scaleFace = false;
+            e.Use();
+        }
+        else if (e.keyCode == KeyCode.R) {
+            movingFace = false;
+            rotFace = false;
+            scaleFace = true;
+            e.Use();
+        }
+    }
 
     void OnSceneGUI(SceneView scnView) {
-        //return;
-        //Debug.Log(Event.current.mousePosition);
+
         if (Selection.activeGameObject == null) {
             // reset tool here
             selObj = null;
@@ -160,6 +156,10 @@ public class FaceEditor : EditorWindow {
 
         if (editMode == EditMode.Face && mesh != null) {
             HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
+            if (Event.current.isKey) {
+                HandleHotKey(Event.current);
+            }
+         
             foreach (List<int> selectedFace in selectedFaces) {
                 GL.Begin(GL.TRIANGLES);
                 GL.Color(new Color(1, 1, 0, 0.5f));
@@ -168,6 +168,8 @@ public class FaceEditor : EditorWindow {
                 GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]));
                 GL.End();
             }
+
+
             Ray worldRay = HandleUtility.GUIPointToWorldRay(Event.current.mousePosition);
             RaycastHit hitInfo;
             if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
@@ -217,7 +219,6 @@ public class FaceEditor : EditorWindow {
                 lastHandlePos = handlePos;
                 handlePos = Handles.PositionHandle(handlePos, rot);
 
-
                 HashSet<int> modifiedIndex = new HashSet<int>();
                 if (lastHandlePos != handlePos) {
                     Vector3[] vertices = mesh.vertices;
@@ -248,7 +249,7 @@ public class FaceEditor : EditorWindow {
 
                 lastHandleRot = handleRot;
                 handleRot = Handles.RotationHandle(handleRot, handlePos);
-                Debug.Log(handleRot);
+                //Debug.Log(handleRot);
 
                 HashSet<int> modifiedIndex = new HashSet<int>();
                 if (lastHandleRot != handleRot) { // does not work!
@@ -282,7 +283,7 @@ public class FaceEditor : EditorWindow {
                     rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
 
                 lastHandleScale = handleScale;
-                handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, 1);
+                handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, 2.5f);
                 //Debug.Log(handleScale);
 
                 if (lastHandleScale != handleScale) {
@@ -312,14 +313,49 @@ public class FaceEditor : EditorWindow {
 
         Handles.BeginGUI();
 
-        GUILayout.Window(2, new Rect(Screen.width - 110, Screen.height - 130, 100, 100), (id) => {
-            // Content of window here
-            GUILayout.Button(EditorGUIUtility.Load("Move.png") as Texture);
-            GUILayout.Button("Rotate");
-            GUILayout.Button("Scale");
-        }, "Toolbox");
+        GUILayout.Window(2, new Rect(10, 20, 50, 50), (id) => {
+            movingFace = GUILayout.Toggle(movingFace, EditorGUIUtility.Load("move.png") as Texture, "Button");
+            if (movingFace) {
+                rotFace = false;
+                scaleFace = false;
+            }
+            rotFace = GUILayout.Toggle(rotFace, EditorGUIUtility.Load("rotate.png") as Texture, "Button");
+            if (rotFace) {
+                movingFace = false;
+                scaleFace = false;
+            }
+            scaleFace = GUILayout.Toggle(scaleFace, EditorGUIUtility.Load("scale.png") as Texture, "Button");
+            if (scaleFace) {
+                movingFace = false;
+                rotFace = false;
+            }
+        }, "Tools");
+
+        if (movingFace) {
+            GUILayout.Window(3, new Rect(80, 40, 50, 50), (subid) => {
+                GUILayout.Label("Move Axis:");
+                string[] content = { "Local", "World", "UVN" };
+                moveCoord = GUILayout.SelectionGrid(moveCoord, content, 3, "toggle");   
+            }, "Move Tool");
+        }
+        else if (rotFace) {
+            GUILayout.Window(4, new Rect(80, 80, 50, 50), (subid) => {
+                GUILayout.Label("Rotate Axis:");
+                string[] content = { "Local", "World", "UVN" };
+                rotCoord = GUILayout.SelectionGrid(rotCoord, content, 3, "toggle");
+            }, "Rotate Tool");
+        }
+        else if (scaleFace) {
+            GUILayout.Window(5, new Rect(80, 120, 50, 50), (subid) => {
+                GUILayout.Label("Scale Axis:");
+                string[] content = { "Local", "World", "UVN" };
+                scaleCoord = GUILayout.SelectionGrid(scaleCoord, content, 3, "toggle");
+            }, "Scale Tool");
+        }
+
 
         Handles.EndGUI();
+
     }
 
     Vector3 GetFacesAveragePosition(List<List<int>> faces) {
