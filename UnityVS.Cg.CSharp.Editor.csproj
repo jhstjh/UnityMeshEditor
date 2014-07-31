@@ -46,6 +46,24 @@
       <HintPath>Library\UnityAssemblies\UnityEditor.dll</HintPath>
     </Reference>
     <Reference Include="System.Xml.Linq" />
+    <Reference Include="UnityEditor.Graphs">
+      <HintPath>Library\UnityAssemblies\UnityEditor.Graphs.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEditor.iOS.Extensions">
+      <HintPath>Library\UnityAssemblies\UnityEditor.iOS.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEditor.WP8.Extensions">
+      <HintPath>Library\UnityAssemblies\UnityEditor.WP8.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEditor.Metro.Extensions">
+      <HintPath>Library\UnityAssemblies\UnityEditor.Metro.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEditor.BB10.Extensions">
+      <HintPath>Library\UnityAssemblies\UnityEditor.BB10.Extensions.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEditor.Android.Extensions">
+      <HintPath>Library\UnityAssemblies\UnityEditor.Android.Extensions.dll</HintPath>
+    </Reference>
     <Reference Include="SyntaxTree.VisualStudio.Unity.Bridge">
       <HintPath>Assets\UnityVS\Editor\SyntaxTree.VisualStudio.Unity.Bridge.dll</HintPath>
     </Reference>
@@ -63,7 +81,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\Editor\FaceEditor.cs" />
+    <Compile Include="Assets\Editor\MeshEditor\MeshEditor.cs" />
     <None Include="Assets\Shader\DepthMask.shader" />
     <None Include="Assets\Shader\Test.shader" />
     <None Include="Assets\UnityVS\Editor\SyntaxTree.VisualStudio.Unity.Bridge.dll" />
