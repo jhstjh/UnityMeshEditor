@@ -202,18 +202,23 @@ public class FaceEditor : EditorWindow {
             HandleUtility.Repaint();
         }
         else if (editMode == EditMode.Vertex && mesh != null) {
-            //HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
             for (int i = 0; i < mesh.vertices.Length; i++) {
                 Handles.color = new Color(1, 0, 1);
+                if (selectedVertices.Contains(i))
+                    Handles.color = Color.yellow;
                 Handles.DotCap(10 + i, selObj.transform.TransformPoint(mesh.vertices[i]), Quaternion.identity, 0.05f);
             }
             HandleVertexSelection(Event.current);
-
             if (movingFace && selectedVertices.Count != 0) {
                 MoveVertex();
-
             }
-
+            if (rotFace && selectedVertices.Count != 0) {
+                RotateVertex();
+            }
+            if (scaleFace && selectedVertices.Count != 0) {
+                ScaleVertex();
+            }
+            HandleUtility.Repaint();
         }
     }
 
@@ -264,8 +269,8 @@ public class FaceEditor : EditorWindow {
         if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject.name.Contains("VertHelper_")) {
             
             // Hightlight the hover vertex here
-            
 
+            HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
             if (evt.type == EventType.MouseDown) {
                 int vertIdx = vertObj.IndexOf(hitInfo.collider.gameObject);
 
@@ -420,11 +425,81 @@ public class FaceEditor : EditorWindow {
             foreach (int vertex in selectedVertices) {
                 if (!modifiedIndex.Contains(vertex)) {
                     vertices[vertex] += selObj.transform.InverseTransformDirection(handlePos - lastHandlePos);
-                    vertObj[vertex].transform.position = vertices[vertex];
+                    vertObj[vertex].transform.position = selObj.transform.TransformPoint(vertices[vertex]);
                     modifiedIndex.Add(vertex);
                 }
             }
 
+            mesh.vertices = vertices;
+            UpdateMeshCollider();
+        }
+    }
+
+    void ScaleVertex() {
+        Quaternion rot = new Quaternion();
+
+        if (scaleCoord == 0)
+            rot = selObj.transform.rotation;
+        else if (scaleCoord == 1)
+            rot = Quaternion.identity;
+        else if (scaleCoord == 2)
+            rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
+
+        lastHandleScale = handleScale;
+        handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, 2.5f);
+        //Debug.Log(handleScale);
+
+        if (lastHandleScale != handleScale) {
+            HashSet<int> modifiedIndex = new HashSet<int>();
+
+            Vector3[] vertices = mesh.vertices;
+
+            foreach (int vertex in selectedVertices) {
+                if (!modifiedIndex.Contains(vertex)) {
+                    Vector3 centerToVert = vertices[vertex] - selObj.transform.InverseTransformPoint(handlePos);
+                    centerToVert.x *= (handleScale.x / lastHandleScale.x);
+                    centerToVert.y *= (handleScale.y / lastHandleScale.y);
+                    centerToVert.z *= (handleScale.z / lastHandleScale.z);
+
+                    vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos) + centerToVert;
+                    modifiedIndex.Add(vertex);
+                }
+            }
+
+            mesh.vertices = vertices;
+            UpdateMeshCollider();
+        }
+    }
+
+    void RotateVertex() {
+        // not just work out of box
+        // need transformation to different coord and maintain offset
+        /*
+        if (rotCoord == 0)
+            rot = selObj.transform.rotation;
+        else if (rotCoord == 1)
+            rot = Quaternion.identity;
+        else if (rotCoord == 2)
+            rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
+        */
+
+        lastHandleRot = handleRot;
+        handleRot = Handles.RotationHandle(handleRot, handlePos);
+        //Debug.Log(handleRot);
+
+        HashSet<int> modifiedIndex = new HashSet<int>();
+        if (lastHandleRot != handleRot) { // does not work!
+            //Debug.Log("Rotate");
+            Vector3[] vertices = mesh.vertices;
+            foreach (int vertex in selectedVertices) {
+                if (!modifiedIndex.Contains(vertex)) {
+                    Vector3 centerToVert = selObj.transform.TransformPoint(vertices[vertex]) - handlePos;
+                    Quaternion oldToNewRot = handleRot * Quaternion.Inverse(lastHandleRot);
+                    Vector3 newCenterToVert = oldToNewRot * centerToVert;
+                    vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos + newCenterToVert);
+                    modifiedIndex.Add(vertex);
+                }
+            }
             mesh.vertices = vertices;
             UpdateMeshCollider();
         }
@@ -534,13 +609,10 @@ public class FaceEditor : EditorWindow {
 
     Vector3 GetFaceAveragePosition(List<int> face) {
         //return (selObj.transform.TransformPoint(mesh.vertices[face[0]]) + selObj.transform.TransformPoint(mesh.vertices[face[1]]) + selObj.transform.TransformPoint(mesh.vertices[face[2]])) / 3;
-
         Vector3 result = Vector3.zero;
         foreach (int idx in face) {
-            Debug.Log(idx);
             result += selObj.transform.TransformPoint(mesh.vertices[idx]);
         }
-
         return result / face.Count;
     }
 
