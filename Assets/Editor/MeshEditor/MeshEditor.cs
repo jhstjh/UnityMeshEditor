@@ -36,6 +36,7 @@ public class MeshEditor : EditorWindow {
 
     List<List<List<int>>> realTriangleArrayWithSubMeshSeparated = new List<List<List<int>>>();
     List<List<int>> selectedFaces = new List<List<int>>();
+    List<int> selectedFacesIndex = new List<int>();
     List<List<int>> selectedEdges = new List<List<int>>();
     List<int> selectedVertices = new List<int>();
     Material assignedMat = null;
@@ -234,7 +235,9 @@ public class MeshEditor : EditorWindow {
             extrudedFaces.Add(extrudedFace);
         }
 
-
+        triangleList.RemoveAt(3 * selectedFacesIndex[0]);
+        triangleList.RemoveAt(3 * selectedFacesIndex[0] + 1);
+        triangleList.RemoveAt(3 * selectedFacesIndex[0] + 2);
 
         mesh.vertices = vertexList.ToArray();
         mesh.uv = uvList.ToArray();
@@ -263,6 +266,7 @@ public class MeshEditor : EditorWindow {
                 selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
                 selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
                 selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
+                selectedFacesIndex.Add(hitInfo.triangleIndex);
 
                 bool removed = false;
                 for (int i = 0; i < selectedFaces.Count; i++) {
