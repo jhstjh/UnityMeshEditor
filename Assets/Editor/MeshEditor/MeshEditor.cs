@@ -79,11 +79,12 @@ public class MeshEditor : EditorWindow {
                 assignedMat = EditorGUILayout.ObjectField("Material to use", assignedMat, typeof(Material), true) as Material;
             }
 
+            if (GUILayout.Button("Extrude")) {
+                Extrude();
+            }
             GUILayout.EndVertical();
         }
         GUILayout.EndVertical();
-
-        //Debug.Log("FaceEdit");
     }
 
     void MeshEditMode() {
@@ -185,6 +186,63 @@ public class MeshEditor : EditorWindow {
             HandleEdgeSelection(Event.current);
             HandleUtility.Repaint();
         }
+    }
+
+    void Extrude() {
+
+        List<Vector3> vertexList = new List<Vector3>(mesh.vertices);
+        List<Vector2> uvList = new List<Vector2>(mesh.uv);
+        List<Vector3> normalList = new List<Vector3>(mesh.normals);
+        List<int> triangleList = new List<int>(mesh.triangles);
+
+        List<List<int>> extrudedFaces = new List<List<int>>();
+
+        foreach (List<int> selectedFace in selectedFaces) {
+            int startNewIndex = vertexList.Count;
+            foreach (int vertIdx in selectedFace) {
+                vertexList.Add(vertexList[vertIdx]);
+                normalList.Add(normalList[vertIdx]);
+                uvList.Add(uvList[vertIdx]);
+                triangleList.Add(vertexList.Count - 1);
+            }
+
+            triangleList.Add(selectedFace[0]);
+            triangleList.Add(selectedFace[1]);
+            triangleList.Add(startNewIndex);
+            triangleList.Add(startNewIndex + 1);
+            triangleList.Add(startNewIndex);
+            triangleList.Add(selectedFace[1]);
+
+            triangleList.Add(selectedFace[1]);
+            triangleList.Add(selectedFace[2]);
+            triangleList.Add(startNewIndex + 1);
+            triangleList.Add(startNewIndex + 2);
+            triangleList.Add(startNewIndex + 1);
+            triangleList.Add(selectedFace[2]);
+
+            triangleList.Add(selectedFace[2]);
+            triangleList.Add(selectedFace[0]);
+            triangleList.Add(startNewIndex + 2);
+            triangleList.Add(startNewIndex);
+            triangleList.Add(startNewIndex + 2);
+            triangleList.Add(selectedFace[0]);
+
+            List<int> extrudedFace = new List<int>();
+            extrudedFace.Add(startNewIndex);
+            extrudedFace.Add(startNewIndex + 1);
+            extrudedFace.Add(startNewIndex + 2);
+            extrudedFaces.Add(extrudedFace);
+        }
+
+
+
+        mesh.vertices = vertexList.ToArray();
+        mesh.uv = uvList.ToArray();
+        mesh.triangles = triangleList.ToArray();
+
+        mesh.Optimize();
+
+        selectedFaces = extrudedFaces;
     }
 
     void HandleFaceSelection(Event evt) {
@@ -759,7 +817,6 @@ public class MeshEditor : EditorWindow {
         }
         return result / face.Count;
     }
-
 
     Vector3 GetFacesNormal(List<List<int>> faces) {
         Vector3 pos = Vector3.zero;
