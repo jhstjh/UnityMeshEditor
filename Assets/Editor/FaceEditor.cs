@@ -44,6 +44,8 @@ public class FaceEditor : EditorWindow {
     List<int> selectedVertices = new List<int>();
     Material assignedMat = null;
 
+    Material GLMat;
+
     EditMode editMode = EditMode.Object;
 
     enum EditMode {
@@ -54,7 +56,7 @@ public class FaceEditor : EditorWindow {
     }
 
 
-    [MenuItem("Mesh Editor/Face Editor")]
+    [MenuItem("Mesh Editor/Mesh Editor Panel")]
     public static void ShowWindow() {
         EditorWindow.GetWindow(typeof(FaceEditor));
         //FaceEditMode();
@@ -67,10 +69,12 @@ public class FaceEditor : EditorWindow {
             GUILayout.BeginHorizontal();
 
             editMode = (EditMode)EditorGUILayout.EnumPopup("Edit Mode", editMode);
+            /*
             if (GUILayout.Button("Edit")) {
                 if (editMode == EditMode.Face)
                     MeshEditMode();
             }
+            */
             //skinedMesh = GUILayout.Toggle(skinedMesh, "Create New Mesh");
             GUILayout.EndHorizontal();
             //GUILayout.Label("(Please don't touch anything in Scene \nbefore finishing the whole process)", GUILayout.Width(300));
@@ -122,6 +126,7 @@ public class FaceEditor : EditorWindow {
             realTriangleArrayWithSubMeshSeparated.Add(realTriangleArray);
         }
         
+        /*
         vertObjMain = new GameObject();
         for (int i = 0; i < mesh.vertices.Length; i++) {
 
@@ -134,7 +139,7 @@ public class FaceEditor : EditorWindow {
             handle.name = "VertHelper_" + i;
             vertObj.Add(handle);
         }
-        
+        */
     }
 
     void OnSceneGUI(SceneView scnView) {
@@ -191,18 +196,17 @@ public class FaceEditor : EditorWindow {
                 HandleHotKey(evt);
             }
             HighlightSelectedFaces();
-            HandleFaceSelection(Event.current);
-
             if (moveElement && selectedFaces.Count != 0) 
                 MoveVertexGroup(selectedFaces);
             else if (rotElement && selectedFaces.Count != 0)
                 RotateVertexGroup(selectedFaces);   
             else if (scaleElement && selectedFaces.Count != 0)
                 ScaleVertexGroup(selectedFaces);
-
+            HandleFaceSelection(Event.current);
             HandleUtility.Repaint();
         }
         else if (editMode == EditMode.Vertex && mesh != null) {
+            HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
             if (evt.isKey) {
                 HandleHotKey(evt);
             }
@@ -210,25 +214,23 @@ public class FaceEditor : EditorWindow {
                 Handles.color = new Color(1, 0, 1);
                 if (selectedVertices.Contains(i))
                     Handles.color = Color.yellow;
-                Handles.DotCap(10 + i, selObj.transform.TransformPoint(mesh.vertices[i]), Quaternion.identity, 0.05f);
-            }
-            HandleVertexSelection(Event.current);
-
+                Handles.DotCap(10 + i, selObj.transform.TransformPoint(mesh.vertices[i]), Quaternion.identity, 0.03f);
+            }     
             if (moveElement && selectedVertices.Count != 0) 
                 MoveVertex();
             if (rotElement && selectedVertices.Count != 0) 
                 RotateVertex();
             if (scaleElement && selectedVertices.Count != 0) 
                 ScaleVertex();
-
+            HandleVertexSelection(Event.current);
             HandleUtility.Repaint();
         }
         else if (editMode == EditMode.Edge && mesh != null) {
+            HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
             if (evt.isKey) {
                 HandleHotKey(evt);
             }
-            HighlightSelectedEdges();
-            HandleEdgeSelection(Event.current);
+            HighlightSelectedEdges(); 
 
             if (moveElement && selectedEdges.Count != 0)
                 MoveVertexGroup(selectedEdges);
@@ -236,7 +238,7 @@ public class FaceEditor : EditorWindow {
                 RotateVertexGroup(selectedEdges);
             else if (scaleElement && selectedEdges.Count != 0)
                 ScaleVertexGroup(selectedEdges);
-
+            HandleEdgeSelection(Event.current);
             HandleUtility.Repaint();
         }
     }
@@ -286,46 +288,46 @@ public class FaceEditor : EditorWindow {
         Ray worldRay = HandleUtility.GUIPointToWorldRay(evt.mousePosition);
         RaycastHit hitInfo;
         if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
-            //Debug.Log(hitInfo.triangleIndex);
+            Vector3 vert1 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]);
+            Vector3 vert2 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]);
+            Vector3 vert3 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]);
 
-            HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
+            float dist1 = HandleUtility.DistanceToLine(vert1, vert2);
+            float dist2 = HandleUtility.DistanceToLine(vert1, vert3);
+            float dist3 = HandleUtility.DistanceToLine(vert2, vert3);
+
+            float min = Mathf.Min(new float[] { dist1, dist2, dist3 });
+
+            List<int> highLightedEdge = new List<int>();
+
+            if (min < 10.0f) {
+                if (min == dist1) {
+                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
+                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
+                }
+                else if (min == dist2) {
+                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
+                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
+                }
+                else if (min == dist3) {
+                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
+                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
+                }
+
+                GL.Begin(GL.LINES);
+                GL.Color(Color.red);
+                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]));
+                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]]));
+                GL.End();
+            }
+
             if (evt.type == EventType.MouseDown) {
-                Vector3 vert1 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]);
-                Vector3 vert2 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]);
-                Vector3 vert3 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]);
-
-                float dist1 = HandleUtility.DistanceToLine(vert1, vert2);
-                float dist2 = HandleUtility.DistanceToLine(vert1, vert3);
-                float dist3 = HandleUtility.DistanceToLine(vert2, vert3);
-
-                Debug.Log(dist1);
-                Debug.Log(dist2);
-                Debug.Log(dist3);
-
-                float min = Mathf.Min(new float[] { dist1, dist2, dist3 });
-
                 // only select edge within 10 pix
                 if (min < 10.0f) {
-                    List<int> selectedEdge = new List<int>();
-
-                    if (min == dist1) {
-                        selectedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
-                        selectedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
-                    }
-                    else if (min == dist2) {
-                        selectedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
-                        selectedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
-                    }
-                    else if (min == dist3) {
-                        selectedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
-                        selectedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
-                    }
-
-
                     bool removed = false;
                     for (int i = 0; i < selectedEdges.Count; i++) {
                         // if it already exists, remove it from selection, not working? TODO
-                        if (selectedEdge.SequenceEqual(selectedEdges[i])) {
+                        if (highLightedEdge.SequenceEqual(selectedEdges[i])) {
                             selectedEdges.RemoveAt(i);
                             removed = true;
                         }
@@ -335,7 +337,7 @@ public class FaceEditor : EditorWindow {
                     }
 
                     if (!removed)
-                        selectedEdges.Add(selectedEdge);
+                        selectedEdges.Add(highLightedEdge);
 
                     handlePos = GetFacesAveragePosition(selectedEdges);
                     handleRot = selObj.transform.rotation;
@@ -351,6 +353,55 @@ public class FaceEditor : EditorWindow {
     }
 
     void HandleVertexSelection(Event evt) {
+#if true
+        Ray worldRay = HandleUtility.GUIPointToWorldRay(evt.mousePosition);
+        RaycastHit hitInfo;
+        if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
+            Vector3 vert1 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]);
+            Vector3 vert2 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]);
+            Vector3 vert3 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]);
+
+            float dist1 = Vector3.Distance(hitInfo.point, vert1);
+            float dist2 = Vector3.Distance(hitInfo.point, vert2);
+            float dist3 = Vector3.Distance(hitInfo.point, vert3);
+
+            float min = Mathf.Min(new float[] { dist1, dist2, dist3 });
+
+            int highLightedVertex = -1;
+
+            if (min < 10.0f) {
+                if (min == dist1) {
+                    highLightedVertex = mesh.triangles[3 * hitInfo.triangleIndex];
+                }
+                else if (min == dist2) {
+                    highLightedVertex = mesh.triangles[3 * hitInfo.triangleIndex + 1];
+                }
+                else if (min == dist3) {
+                    highLightedVertex = mesh.triangles[3 * hitInfo.triangleIndex + 2];
+                }
+                Debug.Log(highLightedVertex);
+                Handles.color = Color.red;
+                Handles.DotCap(2453, selObj.transform.TransformPoint(mesh.vertices[highLightedVertex]), Quaternion.identity, 0.05f);
+            }
+
+            if (evt.type == EventType.MouseDown && highLightedVertex != -1) {
+                //int vertIdx = vertObj.IndexOf(hitInfo.collider.gameObject);
+
+                if (selectedVertices.Contains(highLightedVertex))
+                    selectedVertices.Remove(highLightedVertex);
+                else {
+                    if (!Event.current.shift) {
+                        selectedVertices.Clear();
+                    }
+                    selectedVertices.Add(highLightedVertex);
+                }
+
+                handlePos = GetFaceAveragePosition(selectedVertices);
+                handleRot = selObj.transform.rotation;
+                handleScale = Vector3.one;
+            }
+        }
+#else
         Ray worldRay = HandleUtility.GUIPointToWorldRay(evt.mousePosition);
         RaycastHit hitInfo;
         if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject.name.Contains("VertHelper_")) {
@@ -387,6 +438,7 @@ public class FaceEditor : EditorWindow {
                 handleScale = Vector3.one;
             }
         }
+#endif
     }
 
     void HighlightSelectedFaces() {
@@ -418,7 +470,7 @@ public class FaceEditor : EditorWindow {
         else if (moveCoord == 1)
             rot = Quaternion.identity;
         else if (moveCoord == 2)
-            rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
+            rot = Quaternion.LookRotation(GetFaceNormal(vertexGroupList[0]));
 
         lastHandlePos = handlePos;
         handlePos = Handles.PositionHandle(handlePos, rot);
@@ -483,7 +535,7 @@ public class FaceEditor : EditorWindow {
         else if (scaleCoord == 1)
             rot = Quaternion.identity;
         else if (scaleCoord == 2)
-            rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
+            rot = Quaternion.LookRotation(GetFaceNormal(vertexGroupList[0]));
 
         lastHandleScale = handleScale;
         handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, 2.5f);
@@ -533,7 +585,7 @@ public class FaceEditor : EditorWindow {
             foreach (int vertex in selectedVertices) {
                 if (!modifiedIndex.Contains(vertex)) {
                     vertices[vertex] += selObj.transform.InverseTransformDirection(handlePos - lastHandlePos);
-                    vertObj[vertex].transform.position = selObj.transform.TransformPoint(vertices[vertex]);
+                    //vertObj[vertex].transform.position = selObj.transform.TransformPoint(vertices[vertex]);
                     modifiedIndex.Add(vertex);
                 }
             }
@@ -637,21 +689,21 @@ public class FaceEditor : EditorWindow {
         if (moveElement) {
             GUILayout.Window(3, new Rect(80, 40, 50, 50), (subid) => {
                 GUILayout.Label("Move Axis:");
-                string[] content = { "Local", "World", "UVN" };
+                string[] content = { "Local", "World", "Average Normal" };
                 moveCoord = GUILayout.SelectionGrid(moveCoord, content, 3, "toggle");
             }, "Move Tool");
         }
         else if (rotElement) {
             GUILayout.Window(4, new Rect(80, 80, 50, 50), (subid) => {
                 GUILayout.Label("Rotate Axis:");
-                string[] content = { "Local", "World", "UVN" };
+                string[] content = { "Local", "World", "Average Normal" };
                 rotCoord = GUILayout.SelectionGrid(rotCoord, content, 3, "toggle");
             }, "Rotate Tool");
         }
         else if (scaleElement) {
             GUILayout.Window(5, new Rect(80, 120, 50, 50), (subid) => {
                 GUILayout.Label("Scale Axis:");
-                string[] content = { "Local", "World", "UVN" };
+                string[] content = { "Local", "World", "Average Normal" };
                 scaleCoord = GUILayout.SelectionGrid(scaleCoord, content, 3, "toggle");
             }, "Scale Tool");
         }
