@@ -125,7 +125,7 @@ public class MeshEditor : EditorWindow {
         }
         else
             DestroyImmediate(selObj.GetComponent<MeshCollider>());
-        
+        mesh.Optimize();
         selObj = null;
         mesh = null;
         selectedFaces.Clear();
@@ -133,6 +133,7 @@ public class MeshEditor : EditorWindow {
         selectedEdges.Clear();
         realTriangleArrayWithSubMeshSeparated.Clear();
         vertexMapping.Clear();
+        selectedFacesIndex.Clear();
     }
 
     void OnSceneGUI(SceneView scnView) {
@@ -196,8 +197,8 @@ public class MeshEditor : EditorWindow {
     bool AddNewFace(int vert1, int vert2, ref List<int> triangleList, List<int> selectedFace, int startNewIndex) {
         if (keepFaceTogether) {
             HashSet<int> theEdge = new HashSet<int>();
-            theEdge.Add(selectedFace[vert1]);
-            theEdge.Add(selectedFace[vert2]);
+            theEdge.Add(Mathf.Min(selectedFace[vert1], selectedFace[vert2]));
+            theEdge.Add(Mathf.Max(selectedFace[vert1], selectedFace[vert2]));
 
             if (edgeOccurance[theEdge] > 1)
                 return false;
@@ -255,8 +256,8 @@ public class MeshEditor : EditorWindow {
         foreach (List<int> selectedFace in selectedFaces) {
             for (int i = 0; i < 3; i++) {
                 HashSet<int> edge = new HashSet<int>();
-                edge.Add(selectedFace[i]);
-                edge.Add(selectedFace[(i + 1) % 3]);
+                edge.Add(Mathf.Min(selectedFace[i], selectedFace[(i + 1) % 3]));
+                edge.Add(Mathf.Max(selectedFace[i], selectedFace[(i + 1) % 3]));
 
                 if (edgeOccurance.ContainsKey(edge)) {
                     edgeOccurance[edge]++;
@@ -325,7 +326,7 @@ public class MeshEditor : EditorWindow {
         mesh.triangles = triangleList.ToArray();
         mesh.normals = normalList.ToArray();
 
-        mesh.Optimize();
+        //mesh.Optimize();
         UpdateMeshCollider();
 
         selectedFaces = extrudedFaces;
@@ -357,6 +358,7 @@ public class MeshEditor : EditorWindow {
                     // if it already exists, remove it from selection, not working? TODO
                     if (selectedFace.SequenceEqual(selectedFaces[i])) {
                         selectedFaces.RemoveAt(i);
+                        selectedFacesIndex.Remove(hitInfo.triangleIndex);
                         removed = true;
                     }
                 }
