@@ -203,13 +203,12 @@ public class MeshEditor : EditorWindow {
             int startNewIndex = vertexList.Count;
             foreach (int vertIdx in selectedFace) {
                 vertexList.Add(vertexList[vertIdx]);
-                normalList.Add(normalList[vertIdx]);
+                normalList.Add(GetFaceNormal(selectedFace));
                 uvList.Add(uvList[vertIdx]);
                 triangleList.Add(vertexList.Count - 1);
             }
 
             extrudedFacesIndex.Add((triangleList.Count) / 3 - 2);
-
 
             triangleList.Add(selectedFace[0]);
             triangleList.Add(selectedFace[1]);
@@ -236,20 +235,15 @@ public class MeshEditor : EditorWindow {
             extrudedFace.Add(startNewIndex);
             extrudedFace.Add(startNewIndex + 1);
             extrudedFace.Add(startNewIndex + 2);
-            extrudedFaces.Add(extrudedFace);
-            Debug.Log(startNewIndex);
-            
+            extrudedFaces.Add(extrudedFace);   
         }
-
-        //triangleList.RemoveAt(3 * selectedFacesIndex[0]);
-        //triangleList.RemoveAt(3 * selectedFacesIndex[0]);
-        //triangleList.RemoveAt(3 * selectedFacesIndex[0]);
 
         triangleList.RemoveRange(3 * selectedFacesIndex[0], 3);
 
         mesh.vertices = vertexList.ToArray();
         mesh.uv = uvList.ToArray();
         mesh.triangles = triangleList.ToArray();
+        mesh.normals = normalList.ToArray();
 
         mesh.Optimize();
 
