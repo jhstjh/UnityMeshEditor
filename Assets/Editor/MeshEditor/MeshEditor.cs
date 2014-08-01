@@ -193,14 +193,14 @@ public class MeshEditor : EditorWindow {
         }
     }
 
-    void AddNewFace(int vert1, int vert2, ref List<int> triangleList, List<int> selectedFace, int startNewIndex/*, Dictionary<HashSet<int>, int> edgeOccurance*/) {
+    bool AddNewFace(int vert1, int vert2, ref List<int> triangleList, List<int> selectedFace, int startNewIndex) {
         if (keepFaceTogether) {
             HashSet<int> theEdge = new HashSet<int>();
             theEdge.Add(selectedFace[vert1]);
             theEdge.Add(selectedFace[vert2]);
 
             if (edgeOccurance[theEdge] > 1)
-                return;
+                return false;
 
             triangleList.Add(selectedFace[vert1]);
             triangleList.Add(selectedFace[vert2]);
@@ -208,6 +208,7 @@ public class MeshEditor : EditorWindow {
             triangleList.Add(vertexMapping[selectedFace[vert2]]);
             triangleList.Add(vertexMapping[selectedFace[vert1]]);
             triangleList.Add(selectedFace[vert2]);
+            return true;
         }
         else {
             triangleList.Add(selectedFace[vert1]);
@@ -216,9 +217,11 @@ public class MeshEditor : EditorWindow {
             triangleList.Add(startNewIndex + vert2);
             triangleList.Add(startNewIndex + vert1);
             triangleList.Add(selectedFace[vert2]);
+            return true;
         }
     }
 
+    // check if this really works!!!
     class HashSetEqualityComparer<T> : IEqualityComparer<HashSet<T>> {
         public int GetHashCode(HashSet<T> hashSet) {
             if (hashSet == null)
@@ -248,9 +251,6 @@ public class MeshEditor : EditorWindow {
         List<List<int>> extrudedFaces = new List<List<int>>();
         List<int> extrudedFacesIndex = new List<int>();
 
-        //List<HashSet<int>> noNeedNewFaceEdges = new List<HashSet<int>>();
-        //List<HashSet<int>> examedEdges = new List<HashSet<int>>();
-
         edgeOccurance.Clear();
         foreach (List<int> selectedFace in selectedFaces) {
             for (int i = 0; i < 3; i++) {
@@ -268,7 +268,6 @@ public class MeshEditor : EditorWindow {
         }
 
         vertexMapping.Clear();
-
         int faceIdx = 0;
         foreach (List<int> selectedFace in selectedFaces) {
             int startNewIndex = vertexList.Count;
@@ -288,9 +287,9 @@ public class MeshEditor : EditorWindow {
 
             extrudedFacesIndex.Add((triangleList.Count) / 3 - 1);
 
-            AddNewFace(0, 1, ref triangleList, selectedFace, startNewIndex/*, edgeOccurance*/);
-            AddNewFace(1, 2, ref triangleList, selectedFace, startNewIndex/*, edgeOccurance*/);
-            AddNewFace(2, 0, ref triangleList, selectedFace, startNewIndex/*, edgeOccurance*/);
+            AddNewFace(0, 1, ref triangleList, selectedFace, startNewIndex);
+            AddNewFace(1, 2, ref triangleList, selectedFace, startNewIndex);
+            AddNewFace(2, 0, ref triangleList, selectedFace, startNewIndex);
 
             List<int> extrudedFace = new List<int>();
 
@@ -306,8 +305,6 @@ public class MeshEditor : EditorWindow {
             }
             extrudedFaces.Add(extrudedFace);
 
-            // removed face will affect the later index...
-            //triangleList.RemoveRange(3 * selectedFacesIndex[faceIdx], 3);
             triangleList.RemoveRange(3 * selectedFacesIndex[faceIdx], 3);
             for (int i = faceIdx + 1; i < selectedFacesIndex.Count; i++) {
                 if (selectedFacesIndex[i] > selectedFacesIndex[faceIdx]) {
@@ -320,7 +317,6 @@ public class MeshEditor : EditorWindow {
                     extrudedFacesIndex[i]--;
                 }
             }
-
             faceIdx++;
         }
         
