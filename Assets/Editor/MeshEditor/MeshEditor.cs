@@ -17,6 +17,7 @@ public class MeshEditor : EditorWindow {
     bool succeed = false;
     bool prepared = false;
     bool rmbHold = false;
+    bool keepFaceTogether = false;
     Vector2 rmbMousePos;
 
     GameObject selObj = null;
@@ -79,10 +80,10 @@ public class MeshEditor : EditorWindow {
             else {
                 assignedMat = EditorGUILayout.ObjectField("Material to use", assignedMat, typeof(Material), true) as Material;
             }
-
             if (GUILayout.Button("Extrude")) {
                 Extrude();
             }
+            keepFaceTogether = GUILayout.Toggle(keepFaceTogether, "Keep face together");
             GUILayout.EndVertical();
         }
         GUILayout.EndVertical();
@@ -189,8 +190,16 @@ public class MeshEditor : EditorWindow {
         }
     }
 
-    void Extrude() {
+    void AddNewFace(int vert1, int vert2, ref List<int> triangleList, List<int> selectedFace, int startNewIndex, Dictionary<HashSet<int>, int> edgeOccurance) {
+        triangleList.Add(selectedFace[vert1]);
+        triangleList.Add(selectedFace[vert2]);
+        triangleList.Add(startNewIndex + vert1);
+        triangleList.Add(startNewIndex + vert2);
+        triangleList.Add(startNewIndex + vert1);
+        triangleList.Add(selectedFace[vert2]);
+    }
 
+    void Extrude() {
         List<Vector3> vertexList = new List<Vector3>(mesh.vertices);
         List<Vector2> uvList = new List<Vector2>(mesh.uv);
         List<Vector3> normalList = new List<Vector3>(mesh.normals);
@@ -199,6 +208,32 @@ public class MeshEditor : EditorWindow {
         List<List<int>> extrudedFaces = new List<List<int>>();
         List<int> extrudedFacesIndex = new List<int>();
 
+        //List<HashSet<int>> noNeedNewFaceEdges = new List<HashSet<int>>();
+        //List<HashSet<int>> examedEdges = new List<HashSet<int>>();
+
+        Dictionary<HashSet<int>, int> edgeOccurance = new Dictionary<HashSet<int>, int>(/*HashSet<int>.CreateSetComparer()*/);
+
+
+
+        
+        foreach (List<int> selectedFace in selectedFaces) {
+            for (int i = 0; i < 3; i++) {
+                HashSet<int> edge = new HashSet<int>();
+                edge.Add(selectedFace[i]);
+                edge.Add(selectedFace[(i + 1) % 3]);
+
+                if (edgeOccurance.ContainsKey(edge)) {
+                    edgeOccurance[edge]++;
+                }
+                else {
+                    edgeOccurance.Add(edge, 1);
+                }
+            }
+        }
+
+        Dictionary<int, int> vertexMapping = new Dictionary<int, int>();
+
+        int faceIdx = 0;
         foreach (List<int> selectedFace in selectedFaces) {
             int startNewIndex = vertexList.Count;
             foreach (int vertIdx in selectedFace) {
@@ -210,35 +245,22 @@ public class MeshEditor : EditorWindow {
 
             extrudedFacesIndex.Add((triangleList.Count) / 3 - 2);
 
-            triangleList.Add(selectedFace[0]);
-            triangleList.Add(selectedFace[1]);
-            triangleList.Add(startNewIndex);
-            triangleList.Add(startNewIndex + 1);
-            triangleList.Add(startNewIndex);
-            triangleList.Add(selectedFace[1]);
-
-            triangleList.Add(selectedFace[1]);
-            triangleList.Add(selectedFace[2]);
-            triangleList.Add(startNewIndex + 1);
-            triangleList.Add(startNewIndex + 2);
-            triangleList.Add(startNewIndex + 1);
-            triangleList.Add(selectedFace[2]);
-
-            triangleList.Add(selectedFace[2]);
-            triangleList.Add(selectedFace[0]);
-            triangleList.Add(startNewIndex + 2);
-            triangleList.Add(startNewIndex);
-            triangleList.Add(startNewIndex + 2);
-            triangleList.Add(selectedFace[0]);
+            AddNewFace(0, 1, ref triangleList, selectedFace, startNewIndex, edgeOccurance);
+            AddNewFace(1, 2, ref triangleList, selectedFace, startNewIndex, edgeOccurance);
+            AddNewFace(2, 0, ref triangleList, selectedFace, startNewIndex, edgeOccurance);
 
             List<int> extrudedFace = new List<int>();
             extrudedFace.Add(startNewIndex);
             extrudedFace.Add(startNewIndex + 1);
             extrudedFace.Add(startNewIndex + 2);
-            extrudedFaces.Add(extrudedFace);   
-        }
+            extrudedFaces.Add(extrudedFace);
 
+            // removed face will affect the later index...
+            //triangleList.RemoveRange(3 * selectedFacesIndex[faceIdx], 3);
+            faceIdx++;
+        }
         triangleList.RemoveRange(3 * selectedFacesIndex[0], 3);
+        
 
         mesh.vertices = vertexList.ToArray();
         mesh.uv = uvList.ToArray();
@@ -269,7 +291,7 @@ public class MeshEditor : EditorWindow {
                 selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
                 selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
                 selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
-                selectedFacesIndex.Add(hitInfo.triangleIndex);
+                //selectedFacesIndex.Add(hitInfo.triangleIndex);
 
                 bool removed = false;
                 for (int i = 0; i < selectedFaces.Count; i++) {
@@ -281,10 +303,13 @@ public class MeshEditor : EditorWindow {
                 }
                 if (!Event.current.shift) {
                     selectedFaces.Clear();
+                    selectedFacesIndex.Clear();
                 }
 
-                if (!removed)
+                if (!removed) {
                     selectedFaces.Add(selectedFace);
+                    selectedFacesIndex.Add(hitInfo.triangleIndex);
+                }
 
                 handlePos = GetFacesAveragePosition(selectedFaces);
                 handleRot = selObj.transform.rotation;
