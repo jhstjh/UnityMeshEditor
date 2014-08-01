@@ -331,6 +331,10 @@ public class MeshEditor : EditorWindow {
 
         selectedFaces = extrudedFaces;
         selectedFacesIndex = extrudedFacesIndex;
+
+        moveElement = true;
+        rotElement = false;
+        scaleElement = false;
     }
 
     void HandleFaceSelection(Event evt) {
