@@ -197,6 +197,7 @@ public class MeshEditor : EditorWindow {
         List<int> triangleList = new List<int>(mesh.triangles);
 
         List<List<int>> extrudedFaces = new List<List<int>>();
+        List<int> extrudedFacesIndex = new List<int>();
 
         foreach (List<int> selectedFace in selectedFaces) {
             int startNewIndex = vertexList.Count;
@@ -206,6 +207,9 @@ public class MeshEditor : EditorWindow {
                 uvList.Add(uvList[vertIdx]);
                 triangleList.Add(vertexList.Count - 1);
             }
+
+            extrudedFacesIndex.Add((triangleList.Count) / 3 - 2);
+
 
             triangleList.Add(selectedFace[0]);
             triangleList.Add(selectedFace[1]);
@@ -233,11 +237,15 @@ public class MeshEditor : EditorWindow {
             extrudedFace.Add(startNewIndex + 1);
             extrudedFace.Add(startNewIndex + 2);
             extrudedFaces.Add(extrudedFace);
+            Debug.Log(startNewIndex);
+            
         }
 
-        triangleList.RemoveAt(3 * selectedFacesIndex[0]);
-        triangleList.RemoveAt(3 * selectedFacesIndex[0] + 1);
-        triangleList.RemoveAt(3 * selectedFacesIndex[0] + 2);
+        //triangleList.RemoveAt(3 * selectedFacesIndex[0]);
+        //triangleList.RemoveAt(3 * selectedFacesIndex[0]);
+        //triangleList.RemoveAt(3 * selectedFacesIndex[0]);
+
+        triangleList.RemoveRange(3 * selectedFacesIndex[0], 3);
 
         mesh.vertices = vertexList.ToArray();
         mesh.uv = uvList.ToArray();
@@ -246,6 +254,7 @@ public class MeshEditor : EditorWindow {
         mesh.Optimize();
 
         selectedFaces = extrudedFaces;
+        selectedFacesIndex = extrudedFacesIndex;
     }
 
     void HandleFaceSelection(Event evt) {
