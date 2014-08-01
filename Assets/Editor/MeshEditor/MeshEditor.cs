@@ -41,6 +41,7 @@ public class MeshEditor : EditorWindow {
     List<List<int>> selectedEdges = new List<List<int>>();
     List<int> selectedVertices = new List<int>();
     Dictionary<int, int> vertexMapping = new Dictionary<int, int>();
+    Dictionary<HashSet<int>, int> edgeOccurance = new Dictionary<HashSet<int>, int>(new HashSetEqualityComparer<int>());
     Material assignedMat = null;
 
     EditMode editMode = EditMode.Object;
@@ -194,6 +195,13 @@ public class MeshEditor : EditorWindow {
 
     void AddNewFace(int vert1, int vert2, ref List<int> triangleList, List<int> selectedFace, int startNewIndex/*, Dictionary<HashSet<int>, int> edgeOccurance*/) {
         if (keepFaceTogether) {
+            HashSet<int> theEdge = new HashSet<int>();
+            theEdge.Add(selectedFace[vert1]);
+            theEdge.Add(selectedFace[vert2]);
+
+            if (edgeOccurance[theEdge] > 1)
+                return;
+
             triangleList.Add(selectedFace[vert1]);
             triangleList.Add(selectedFace[vert2]);
             triangleList.Add(vertexMapping[selectedFace[vert1]]);
@@ -211,6 +219,26 @@ public class MeshEditor : EditorWindow {
         }
     }
 
+    class HashSetEqualityComparer<T> : IEqualityComparer<HashSet<T>> {
+        public int GetHashCode(HashSet<T> hashSet) {
+            if (hashSet == null)
+                return 0;
+            int h = 0x14345843;//some arbitrary number
+            foreach (T elem in hashSet) {
+                h = h + hashSet.Comparer.GetHashCode(elem);
+            }
+            return h;
+        }
+
+        public bool Equals(HashSet<T> set1, HashSet<T> set2) {
+            if (set1 == set2)
+                return true;
+            if (set1 == null || set2 == null)
+                return false;
+            return set1.SetEquals(set2);
+        }
+    }
+
     void Extrude() {
         List<Vector3> vertexList = new List<Vector3>(mesh.vertices);
         List<Vector2> uvList = new List<Vector2>(mesh.uv);
@@ -223,23 +251,21 @@ public class MeshEditor : EditorWindow {
         //List<HashSet<int>> noNeedNewFaceEdges = new List<HashSet<int>>();
         //List<HashSet<int>> examedEdges = new List<HashSet<int>>();
 
-        
-//         Dictionary<HashSet<int>, int> edgeOccurance = new Dictionary<HashSet<int>, int>(/*HashSet<int>.CreateSetComparer()*/);
-//      
-//         foreach (List<int> selectedFace in selectedFaces) {
-//             for (int i = 0; i < 3; i++) {
-//                 HashSet<int> edge = new HashSet<int>();
-//                 edge.Add(selectedFace[i]);
-//                 edge.Add(selectedFace[(i + 1) % 3]);
-// 
-//                 if (edgeOccurance.ContainsKey(edge)) {
-//                     edgeOccurance[edge]++;
-//                 }
-//                 else {
-//                     edgeOccurance.Add(edge, 1);
-//                 }
-//             }
-//         }
+        edgeOccurance.Clear();
+        foreach (List<int> selectedFace in selectedFaces) {
+            for (int i = 0; i < 3; i++) {
+                HashSet<int> edge = new HashSet<int>();
+                edge.Add(selectedFace[i]);
+                edge.Add(selectedFace[(i + 1) % 3]);
+
+                if (edgeOccurance.ContainsKey(edge)) {
+                    edgeOccurance[edge]++;
+                }
+                else {
+                    edgeOccurance.Add(edge, 1);
+                }
+            }
+        }
 
         vertexMapping.Clear();
 
