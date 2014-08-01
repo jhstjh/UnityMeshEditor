@@ -243,7 +243,7 @@ public class MeshEditor : EditorWindow {
                 triangleList.Add(vertexList.Count - 1);
             }
 
-            extrudedFacesIndex.Add((triangleList.Count) / 3 - 2);
+            extrudedFacesIndex.Add((triangleList.Count) / 3 - 1);
 
             AddNewFace(0, 1, ref triangleList, selectedFace, startNewIndex, edgeOccurance);
             AddNewFace(1, 2, ref triangleList, selectedFace, startNewIndex, edgeOccurance);
@@ -257,9 +257,22 @@ public class MeshEditor : EditorWindow {
 
             // removed face will affect the later index...
             //triangleList.RemoveRange(3 * selectedFacesIndex[faceIdx], 3);
+            triangleList.RemoveRange(3 * selectedFacesIndex[faceIdx], 3);
+            for (int i = faceIdx + 1; i < selectedFacesIndex.Count; i++) {
+                if (selectedFacesIndex[i] > selectedFacesIndex[faceIdx]) {
+                    selectedFacesIndex[i]--;
+                }
+            }
+
+            for (int i = 0; i < extrudedFacesIndex.Count; i++) {
+                if (extrudedFacesIndex[i] > selectedFacesIndex[faceIdx]) {
+                    extrudedFacesIndex[i]--;
+                }
+            }
+
             faceIdx++;
         }
-        triangleList.RemoveRange(3 * selectedFacesIndex[0], 3);
+        
         
 
         mesh.vertices = vertexList.ToArray();
