@@ -267,7 +267,7 @@ public class MeshEditor : EditorWindow {
             HandleUtility.Repaint();
         }
 
-        if (evt.type == EventType.MouseDown && !evt.alt) {
+        if (evt.type == EventType.MouseDown && !evt.alt && editMode != EditMode.Object) {
             if (evt.button == 0 && !lmbHold) {
                 lmbDownPos = evt.mousePosition;
                 lmbHold = true;
@@ -297,11 +297,11 @@ public class MeshEditor : EditorWindow {
                                     selectedVertices.Remove(i);
                                 else
                                     selectedVertices.Add(i);
-                                handlePos = GetFaceAveragePosition(selectedVertices);
-                                handleRot = selObj.transform.rotation;
-                                handleScale = Vector3.one;
                             }
                         }
+                        handlePos = GetFaceAveragePosition(selectedVertices);
+                        handleRot = selObj.transform.rotation;
+                        handleScale = Vector3.one;
                     }
                     else if (editMode == EditMode.Face && mesh != null) {
                         if (!evt.shift)
@@ -325,11 +325,51 @@ public class MeshEditor : EditorWindow {
                                     selectedFacesIndex.Add(i);
                                     selectedFaces.Add(currentFace);
                                 }
-                                handlePos = GetFacesAveragePosition(selectedFaces);
-                                handleRot = selObj.transform.rotation;
-                                handleScale = Vector3.one;
                             }
                         }
+                        handlePos = GetFacesAveragePosition(selectedFaces);
+                        handleRot = selObj.transform.rotation;
+                        handleScale = Vector3.one;
+                    }
+                    else if (editMode == EditMode.Edge && mesh != null) {
+                        if (!evt.shift)
+                            selectedEdges.Clear();
+                        for (int i = 0; i < mesh.triangles.Length / 3; i++) {
+                            List<int> edge1 = new List<int> { mesh.triangles[3 * i], mesh.triangles[3 * i + 1] };
+                            List<int> edge2 = new List<int> { mesh.triangles[3 * i + 1], mesh.triangles[3 * i + 2] };
+                            List<int> edge3 = new List<int> { mesh.triangles[3 * i + 2], mesh.triangles[3 * i] };
+
+                            edge1.Sort();
+                            edge2.Sort();
+                            edge3.Sort();
+
+                            List<List<int>> edges = new List<List<int>> { edge1, edge2, edge3 };
+
+                            foreach (List<int> edge in edges) {
+                                if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[edge[0]]))) ||
+                                    selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[edge[1]])))) {
+
+
+                                    bool removed = false;
+                                    for (int j = 0; j < selectedEdges.Count; j++) {
+                                        if (edge.SequenceEqual(selectedEdges[j])) {
+                                            selectedEdges.RemoveAt(j);
+                                            removed = true;
+                                            break;
+                                            //Debug.Log("shit");
+                                        }
+                                    }
+
+                                    if (!removed) {
+                                        selectedEdges.Add(edge);
+                                    }
+                                }
+                            }
+                        }
+
+                        handlePos = GetFacesAveragePosition(selectedEdges);
+                        handleRot = selObj.transform.rotation;
+                        handleScale = Vector3.one;
                     }
 
                     lmbHold = false;
@@ -578,8 +618,10 @@ public class MeshEditor : EditorWindow {
                     selectedEdges.Clear();
                 }
 
-                if (!removed)
+                if (!removed) {
+                    highLightedEdge.Sort();
                     selectedEdges.Add(highLightedEdge);
+                }
 
                 handlePos = GetFacesAveragePosition(selectedEdges);
                 handleRot = selObj.transform.rotation;
