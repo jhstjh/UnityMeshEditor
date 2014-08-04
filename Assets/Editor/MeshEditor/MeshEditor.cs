@@ -217,47 +217,7 @@ public class MeshEditor : EditorWindow {
             GL.PopMatrix();
         }
 
-        if (evt.type == EventType.MouseDown && evt.control) {
-            if (evt.button == 0 && !lmbHold) {
-                lmbDownPos = evt.mousePosition;
-                lmbHold = true;
-                //Debug.Log("LMB Down");
-            }
-        }
-        else if (evt.type == EventType.MouseUp) {
-            if (evt.button == 0 && lmbHold) {
-                //Debug.Log("LMB Up");
-                if (lmbDownPos == evt.mousePosition) {
-                    lmbHold = false;
-                }
-                else {
-                    float left = Mathf.Min(lmbDownPos.x, evt.mousePosition.x);
-                    float top = Mathf.Min(lmbDownPos.y, evt.mousePosition.y);
-                    float width = Mathf.Abs(lmbDownPos.x - evt.mousePosition.x);
-                    float height = Mathf.Abs(lmbDownPos.y - evt.mousePosition.y);
 
-                    Rect selectionRect = new Rect(left, top, width, height);
-
-                    if (editMode == EditMode.Vertex && mesh != null) {
-                        if (!evt.shift)
-                            selectedVertices.Clear();
-                        for (int i = 0; i < mesh.vertices.Length; i++) {
-                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[i])))) {
-                                if (selectedVertices.Contains(i))
-                                    selectedVertices.Remove(i);
-                                else 
-                                    selectedVertices.Add(i);
-                                handlePos = GetFaceAveragePosition(selectedVertices);
-                                handleRot = selObj.transform.rotation;
-                                handleScale = Vector3.one;
-                            }
-                        }
-                    }
-
-                    lmbHold = false;
-                }
-            }
-        }
 
         HandleFastSel(evt);
         if (rmbHold) {
@@ -305,6 +265,76 @@ public class MeshEditor : EditorWindow {
                 ScaleVertexGroup(selectedEdges);
             HandleEdgeSelection(Event.current);
             HandleUtility.Repaint();
+        }
+
+        if (evt.type == EventType.MouseDown && !evt.alt) {
+            if (evt.button == 0 && !lmbHold) {
+                lmbDownPos = evt.mousePosition;
+                lmbHold = true;
+                //Debug.Log("LMB Down");
+            }
+        }
+        else if (evt.type == EventType.MouseUp) {
+            if (evt.button == 0 && lmbHold) {
+                //Debug.Log("LMB Up");
+                if (lmbDownPos == evt.mousePosition) {
+                    lmbHold = false;
+                }
+                else {
+                    float left = Mathf.Min(lmbDownPos.x, evt.mousePosition.x);
+                    float top = Mathf.Min(lmbDownPos.y, evt.mousePosition.y);
+                    float width = Mathf.Abs(lmbDownPos.x - evt.mousePosition.x);
+                    float height = Mathf.Abs(lmbDownPos.y - evt.mousePosition.y);
+
+                    Rect selectionRect = new Rect(left, top, width, height);
+
+                    if (editMode == EditMode.Vertex && mesh != null) {
+                        if (!evt.shift)
+                            selectedVertices.Clear();
+                        for (int i = 0; i < mesh.vertices.Length; i++) {
+                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[i])))) {
+                                if (selectedVertices.Contains(i))
+                                    selectedVertices.Remove(i);
+                                else
+                                    selectedVertices.Add(i);
+                                handlePos = GetFaceAveragePosition(selectedVertices);
+                                handleRot = selObj.transform.rotation;
+                                handleScale = Vector3.one;
+                            }
+                        }
+                    }
+                    else if (editMode == EditMode.Face && mesh != null) {
+                        if (!evt.shift)
+                            selectedFaces.Clear();
+                        for (int i = 0; i < mesh.triangles.Length / 3; i++) {
+                            List<int> currentFace = new List<int> { mesh.triangles[3 * i], mesh.triangles[3 * i + 1], mesh.triangles[3 * i + 2] };
+                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i]]))) ||
+                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i + 1]]))) ||
+                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i + 2]])))) {
+                                if (selectedFacesIndex.Contains(i)) {
+                                    selectedFacesIndex.Remove(i);
+
+                                    for (int j = 0; j < selectedFaces.Count; j++) {
+                                        if (currentFace.SequenceEqual(selectedFaces[j])) {
+                                            selectedFaces.RemoveAt(j);
+                                            break;
+                                        }
+                                    }
+                                }
+                                else {
+                                    selectedFacesIndex.Add(i);
+                                    selectedFaces.Add(currentFace);
+                                }
+                                handlePos = GetFacesAveragePosition(selectedFaces);
+                                handleRot = selObj.transform.rotation;
+                                handleScale = Vector3.one;
+                            }
+                        }
+                    }
+
+                    lmbHold = false;
+                }
+            }
         }
     }
 
