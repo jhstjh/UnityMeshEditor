@@ -200,21 +200,38 @@ public class MeshEditor : EditorWindow {
             editMode = EditMode.Object;
         }
 
-        if (evt.type == EventType.MouseDown) {
+        // draw selection rect
+        if (lmbHold) {
+            GL.PushMatrix();
+            GL.LoadOrtho();
+            GL.Begin(GL.LINES);        
+            GL.Color(Color.white);
+            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+            GL.End();
+            GL.PopMatrix();
+        }
+
+        if (evt.type == EventType.MouseDown && evt.control) {
             if (evt.button == 0 && !lmbHold) {
                 lmbDownPos = evt.mousePosition;
                 lmbHold = true;
-                Debug.Log("LMB Down");
+                //Debug.Log("LMB Down");
             }
         }
         else if (evt.type == EventType.MouseUp) {
             if (evt.button == 0 && lmbHold) {
-                Debug.Log("LMB Up");
+                //Debug.Log("LMB Up");
                 if (lmbDownPos == evt.mousePosition) {
                     lmbHold = false;
                 }
                 else {
-
                     float left = Mathf.Min(lmbDownPos.x, evt.mousePosition.x);
                     float top = Mathf.Min(lmbDownPos.y, evt.mousePosition.y);
                     float width = Mathf.Abs(lmbDownPos.x - evt.mousePosition.x);
@@ -223,9 +240,17 @@ public class MeshEditor : EditorWindow {
                     Rect selectionRect = new Rect(left, top, width, height);
 
                     if (editMode == EditMode.Vertex && mesh != null) {
+                        if (!evt.shift)
+                            selectedVertices.Clear();
                         for (int i = 0; i < mesh.vertices.Length; i++) {
                             if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[i])))) {
-                                selectedVertices.Add(i);
+                                if (selectedVertices.Contains(i))
+                                    selectedVertices.Remove(i);
+                                else 
+                                    selectedVertices.Add(i);
+                                handlePos = GetFaceAveragePosition(selectedVertices);
+                                handleRot = selObj.transform.rotation;
+                                handleScale = Vector3.one;
                             }
                         }
                     }
