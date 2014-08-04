@@ -17,9 +17,11 @@ public class MeshEditor : EditorWindow {
     bool succeed = false;
     bool prepared = false;
     bool rmbHold = false;
+    bool lmbHold = false;
     bool keepFaceTogether = false;
     bool editOnOriginalMesh = true;
     Vector2 rmbMousePos;
+    Vector2 lmbDownPos;
 
     GameObject selObj = null;
     Mesh mesh = null;
@@ -91,6 +93,11 @@ public class MeshEditor : EditorWindow {
                 Extrude();
             }
             keepFaceTogether = GUILayout.Toggle(keepFaceTogether, "Keep face together");
+            if (GUILayout.Button("Recalculate Normals")) {
+                if (mesh) {
+                    mesh.RecalculateNormals();
+                }
+            }
         }
         GUILayout.EndVertical();
     }
@@ -191,6 +198,41 @@ public class MeshEditor : EditorWindow {
         if (Selection.activeGameObject == null && editMode != EditMode.Object) {
             ExitMeshEditMode();
             editMode = EditMode.Object;
+        }
+
+        if (evt.type == EventType.MouseDown) {
+            if (evt.button == 0 && !lmbHold) {
+                lmbDownPos = evt.mousePosition;
+                lmbHold = true;
+                Debug.Log("LMB Down");
+            }
+        }
+        else if (evt.type == EventType.MouseUp) {
+            if (evt.button == 0 && lmbHold) {
+                Debug.Log("LMB Up");
+                if (lmbDownPos == evt.mousePosition) {
+                    lmbHold = false;
+                }
+                else {
+
+                    float left = Mathf.Min(lmbDownPos.x, evt.mousePosition.x);
+                    float top = Mathf.Min(lmbDownPos.y, evt.mousePosition.y);
+                    float width = Mathf.Abs(lmbDownPos.x - evt.mousePosition.x);
+                    float height = Mathf.Abs(lmbDownPos.y - evt.mousePosition.y);
+
+                    Rect selectionRect = new Rect(left, top, width, height);
+
+                    if (editMode == EditMode.Vertex && mesh != null) {
+                        for (int i = 0; i < mesh.vertices.Length; i++) {
+                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[i])))) {
+                                selectedVertices.Add(i);
+                            }
+                        }
+                    }
+
+                    lmbHold = false;
+                }
+            }
         }
 
         HandleFastSel(evt);
@@ -877,7 +919,7 @@ public class MeshEditor : EditorWindow {
     }
 
     void HandleFastSel(Event evt) {
-        if (evt.isMouse) {
+        if (evt.type == EventType.MouseDown) {
             if (evt.button == 1) {
                 if (rmbHold == false) {
                     rmbMousePos = evt.mousePosition;
@@ -885,39 +927,40 @@ public class MeshEditor : EditorWindow {
                     evt.Use();
                 }
             }
-            else {
-                if (rmbHold == true) {
-                    rmbHold = false;
+        }
+        else if (evt.type == EventType.MouseUp) {
+            if (evt.button == 1 && rmbHold == true) {
+                rmbHold = false;
 
-                    Rect vertexRect = new Rect(rmbMousePos.x - 100, rmbMousePos.y, 50, 20);
-                    Rect edgeRect = new Rect(rmbMousePos.x, rmbMousePos.y - 50, 50, 20);
-                    Rect objRect = new Rect(rmbMousePos.x + 100, rmbMousePos.y, 50, 20);
-                    Rect faceRect = new Rect(rmbMousePos.x, rmbMousePos.y + 50, 50, 20);
+                Rect vertexRect = new Rect(rmbMousePos.x - 100, rmbMousePos.y, 50, 20);
+                Rect edgeRect = new Rect(rmbMousePos.x, rmbMousePos.y - 50, 50, 20);
+                Rect objRect = new Rect(rmbMousePos.x + 100, rmbMousePos.y, 50, 20);
+                Rect faceRect = new Rect(rmbMousePos.x, rmbMousePos.y + 50, 50, 20);
 
-                    if (vertexRect.Contains(evt.mousePosition)) {
-                        if (editMode == EditMode.Object)
-                            MeshEditMode();
-                        editMode = EditMode.Vertex;
-                    }
-                    else if (edgeRect.Contains(evt.mousePosition)) {
-                        if (editMode == EditMode.Object)
-                            MeshEditMode();
-                        editMode = EditMode.Edge;
-                    }
-                    else if (faceRect.Contains(evt.mousePosition)) {
-                        if (editMode == EditMode.Object)
-                            MeshEditMode();
-                        editMode = EditMode.Face;
-                    }
-                    else if (objRect.Contains(evt.mousePosition)) {
-                        ExitMeshEditMode();
-                        editMode = EditMode.Object;
-                    }
-                    HandleUtility.Repaint();
-                    Repaint();
+                if (vertexRect.Contains(evt.mousePosition)) {
+                    if (editMode == EditMode.Object)
+                        MeshEditMode();
+                    editMode = EditMode.Vertex;
                 }
+                else if (edgeRect.Contains(evt.mousePosition)) {
+                    if (editMode == EditMode.Object)
+                        MeshEditMode();
+                    editMode = EditMode.Edge;
+                }
+                else if (faceRect.Contains(evt.mousePosition)) {
+                    if (editMode == EditMode.Object)
+                        MeshEditMode();
+                    editMode = EditMode.Face;
+                }
+                else if (objRect.Contains(evt.mousePosition)) {
+                    ExitMeshEditMode();
+                    editMode = EditMode.Object;
+                }
+                HandleUtility.Repaint();
+                Repaint();
             }
         }
+        
     }
 
     void HandleHotKey(Event e) {
