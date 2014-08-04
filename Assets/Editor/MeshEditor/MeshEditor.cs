@@ -334,6 +334,8 @@ public class MeshEditor : EditorWindow {
                     else if (editMode == EditMode.Edge && mesh != null) {
                         if (!evt.shift)
                             selectedEdges.Clear();
+                        List<List<int>> addedThisRound = new List<List<int>>();
+                        List<List<int>> removedThisRound = new List<List<int>>();
                         for (int i = 0; i < mesh.triangles.Length / 3; i++) {
                             List<int> edge1 = new List<int> { mesh.triangles[3 * i], mesh.triangles[3 * i + 1] };
                             List<int> edge2 = new List<int> { mesh.triangles[3 * i + 1], mesh.triangles[3 * i + 2] };
@@ -353,15 +355,33 @@ public class MeshEditor : EditorWindow {
                                     bool removed = false;
                                     for (int j = 0; j < selectedEdges.Count; j++) {
                                         if (edge.SequenceEqual(selectedEdges[j])) {
-                                            selectedEdges.RemoveAt(j);
-                                            removed = true;
-                                            break;
-                                            //Debug.Log("shit");
+                                            int k = 0;
+                                            for (k = 0; k < addedThisRound.Count; k++) {
+                                                if (edge.SequenceEqual(addedThisRound[k])) {
+                                                    removed = true;
+                                                    break;
+                                                }
+                                            }
+                                            if (k == addedThisRound.Count) {
+                                                selectedEdges.RemoveAt(j);
+                                                removedThisRound.Add(selectedEdges[j]);
+                                                removed = true;
+                                            }
+                                            if (removed)
+                                                break;
                                         }
                                     }
 
                                     if (!removed) {
-                                        selectedEdges.Add(edge);
+                                        bool hasRemoved = false;
+                                        for (int j = 0; j < removedThisRound.Count; j++) {
+                                            if (edge.SequenceEqual(removedThisRound[j]))
+                                                hasRemoved = true;
+                                        }
+                                        if (!hasRemoved) {
+                                            selectedEdges.Add(edge);
+                                            addedThisRound.Add(edge);
+                                        }
                                     }
                                 }
                             }
