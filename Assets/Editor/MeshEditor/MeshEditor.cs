@@ -6,7 +6,6 @@ using System.Text.RegularExpressions;
 using System.Linq;
 using System;
 
-//[ExecuteInEditMode]
 public class MeshEditor : EditorWindow {
     bool skinedMesh = true;
     bool createNewMaterial = true;
@@ -474,11 +473,11 @@ public class MeshEditor : EditorWindow {
 
                 bool removed = false;
                 for (int i = 0; i < selectedFaces.Count; i++) {
-                    // if it already exists, remove it from selection, not working? TODO
                     if (selectedFace.SequenceEqual(selectedFaces[i])) {
                         selectedFaces.RemoveAt(i);
                         selectedFacesIndex.Remove(hitInfo.triangleIndex);
                         removed = true;
+                        break;
                     }
                 }
                 if (!Event.current.shift) {
@@ -516,16 +515,16 @@ public class MeshEditor : EditorWindow {
 
             if (min < 10.0f) {
                 if (min == dist1) {
-                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
-                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
+                    highLightedEdge.Add(Mathf.Min(mesh.triangles[3 * hitInfo.triangleIndex], mesh.triangles[3 * hitInfo.triangleIndex + 1]));
+                    highLightedEdge.Add(Mathf.Max(mesh.triangles[3 * hitInfo.triangleIndex], mesh.triangles[3 * hitInfo.triangleIndex + 1]));
                 }
                 else if (min == dist2) {
-                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
-                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
+                    highLightedEdge.Add(Mathf.Min(mesh.triangles[3 * hitInfo.triangleIndex], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
+                    highLightedEdge.Add(Mathf.Max(mesh.triangles[3 * hitInfo.triangleIndex], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
                 }
                 else if (min == dist3) {
-                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
-                    highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
+                    highLightedEdge.Add(Mathf.Min(mesh.triangles[3 * hitInfo.triangleIndex + 1], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
+                    highLightedEdge.Add(Mathf.Max(mesh.triangles[3 * hitInfo.triangleIndex + 1], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
                 }
 
                 GL.Begin(GL.LINES);
@@ -539,10 +538,10 @@ public class MeshEditor : EditorWindow {
                 // only select edge within 10 pix
                 bool removed = false;
                 for (int i = 0; i < selectedEdges.Count; i++) {
-                    // if it already exists, remove it from selection, not working? TODO
                     if (highLightedEdge.SequenceEqual(selectedEdges[i])) {
                         selectedEdges.RemoveAt(i);
                         removed = true;
+                        break;
                     }
                 }
                 if (!Event.current.shift) {
