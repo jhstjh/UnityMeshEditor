@@ -18,6 +18,7 @@ public class MeshEditor : EditorWindow {
     bool prepared = false;
     bool rmbHold = false;
     bool keepFaceTogether = false;
+    bool editOnOriginalMesh = true;
     Vector2 rmbMousePos;
 
     GameObject selObj = null;
@@ -40,6 +41,9 @@ public class MeshEditor : EditorWindow {
     List<int> selectedFacesIndex = new List<int>();
     List<List<int>> selectedEdges = new List<List<int>>();
     List<int> selectedVertices = new List<int>();
+    List<BoxCollider> bColliders = new List<BoxCollider>();
+    List<SphereCollider> sColliders = new List<SphereCollider>();
+    List<CapsuleCollider> cColliders = new List<CapsuleCollider>();
     Dictionary<int, int> vertexMapping = new Dictionary<int, int>();
     Dictionary<HashSet<int>, int> edgeOccurance = new Dictionary<HashSet<int>, int>(new HashSetEqualityComparer<int>());
     Material assignedMat = null;
@@ -62,15 +66,16 @@ public class MeshEditor : EditorWindow {
         GUILayout.BeginVertical();
         {
             GUILayout.Label("Mesh Editor");
-            GUILayout.BeginHorizontal();
-
-            editMode = (EditMode)EditorGUILayout.EnumPopup("Edit Mode", editMode);
-            GUILayout.EndHorizontal();
-            GUILayout.Label("Notice: \nMesh Editor will NOT modify the source file (e.g. \n*.fbx) but just the imported mesh. Reimport\n the asset will revert all changes to the mesh.", GUILayout.Width(300));
+            editMode = (EditMode)EditorGUILayout.EnumPopup("Edit Mode", editMode);       
+            editOnOriginalMesh = GUILayout.Toggle(editOnOriginalMesh, "Edit On Original Mesh");
+            GUILayout.Label("Notice: Mesh Editor will NOT modify the source file (e.g. \n" +
+                            "*.fbx) but just the imported mesh. Reimport the asset will \n" +
+                            "revert all changes to the mesh.\n"+
+                            "Select \"Edit On Original Mesh\" will affect all instances\n" +
+                            "in project, otherwise a new mesh copy will be create.", GUILayout.Width(400));
             GUILayout.Space(10);
             
-            GUILayout.BeginVertical();
-            //GUI.enabled = succeed;
+
             GUILayout.Label("Change material for selected faces");
             if (GUILayout.Button("Change Material")) {
                 ChangeMaterial();
@@ -86,7 +91,6 @@ public class MeshEditor : EditorWindow {
                 Extrude();
             }
             keepFaceTogether = GUILayout.Toggle(keepFaceTogether, "Keep face together");
-            GUILayout.EndVertical();
         }
         GUILayout.EndVertical();
     }
@@ -116,16 +120,60 @@ public class MeshEditor : EditorWindow {
             }
             realTriangleArrayWithSubMeshSeparated.Add(realTriangleArray);
         }
+
+        BoxCollider[] boxColliders = selObj.GetComponentsInChildren<BoxCollider>();
+        foreach (BoxCollider boxCollider in boxColliders) {
+            if (boxCollider.enabled == true) {
+                bColliders.Add(boxCollider);
+                boxCollider.enabled = false;
+            }
+        }
+
+        SphereCollider[] sphereColliders = selObj.GetComponentsInChildren<SphereCollider>();
+        foreach (SphereCollider sphereCollider in sphereColliders) {
+            if (sphereCollider.enabled == true) {
+                sColliders.Add(sphereCollider);
+                sphereCollider.enabled = false;
+            }
+        }
+
+        CapsuleCollider[] capsuleColliders = selObj.GetComponentsInChildren<CapsuleCollider>();
+        foreach (CapsuleCollider capsuleCollider in capsuleColliders) {
+            if (capsuleCollider.enabled == true) {
+                cColliders.Add(capsuleCollider);
+                capsuleCollider.enabled = false;
+            }
+        }
     }
 
     void ExitMeshEditMode() {
+        if (!selObj) return;
+
         if (hasMeshCollider) {
             selObj.GetComponent<MeshCollider>().sharedMesh = null;
             selObj.GetComponent<MeshCollider>().sharedMesh = mesh;
         }
-        else
-            DestroyImmediate(selObj.GetComponent<MeshCollider>());
-        
+        else {
+            if (selObj.GetComponent<MeshCollider>() != null)
+                DestroyImmediate(selObj.GetComponent<MeshCollider>());
+        }
+
+        foreach (BoxCollider boxCollider in bColliders) {
+            boxCollider.enabled = true;
+        }
+
+        foreach (SphereCollider sphereCollider in sColliders) {
+            sphereCollider.enabled = true;
+        }
+
+        foreach (CapsuleCollider capsuleCollider in cColliders) {
+            capsuleCollider.enabled = true;
+        }
+
+        bColliders.Clear();
+        cColliders.Clear();
+        sColliders.Clear();
+
         selObj = null;
         mesh = null;
         selectedFaces.Clear();
@@ -860,6 +908,7 @@ public class MeshEditor : EditorWindow {
                         editMode = EditMode.Object;
                     }
                     HandleUtility.Repaint();
+                    Repaint();
                 }
             }
         }
@@ -1020,6 +1069,7 @@ public class MeshEditor : EditorWindow {
     }
 
     void OnDestroy() {
+        ExitMeshEditMode();
         SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
     }
 }
