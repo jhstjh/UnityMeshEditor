@@ -7,23 +7,22 @@ using System.Linq;
 using System;
 
 public class MeshEditor : EditorWindow {
-    bool skinedMesh = true;
     bool createNewMaterial = true;
     bool moveElement = false;
     bool rotElement = false;
     bool scaleElement = false;
     bool hasMeshCollider = false;
-    bool succeed = false;
-    bool prepared = false;
     bool rmbHold = false;
     bool lmbHold = false;
     bool keepFaceTogether = false;
     bool editOnOriginalMesh = true;
+    //bool holdingHandle = false;
     Vector2 rmbMousePos;
     Vector2 lmbDownPos;
 
     GameObject selObj = null;
     Mesh mesh = null;
+    Mesh undoMeshBackup = null;
 
     int moveCoord = 0;
     Vector3 lastHandlePos;
@@ -60,27 +59,30 @@ public class MeshEditor : EditorWindow {
 
     [MenuItem("Mesh Editor/Mesh Editor Panel")]
     public static void ShowWindow() {
-        EditorWindow.GetWindow(typeof(MeshEditor));
+        EditorWindow window = EditorWindow.GetWindow(typeof(MeshEditor));
+        window.minSize = new Vector2(350, 350);
     }
 
     void OnGUI() {
         GUILayout.BeginVertical();
         {
-            GUILayout.Label("Mesh Editor");
-            editMode = (EditMode)EditorGUILayout.EnumPopup("Edit Mode", editMode);       
+            EditorGUILayout.LabelField("Mesh Editor 1.0", EditorStyles.boldLabel);
+            EditMode newMode = (EditMode)EditorGUILayout.EnumPopup("Edit Mode", editMode);
+            if (newMode != editMode) {
+                if (editMode == EditMode.Object)
+                    MeshEditMode();
+                editMode = newMode;
+            }
             editOnOriginalMesh = GUILayout.Toggle(editOnOriginalMesh, "Edit On Original Mesh");
             GUILayout.Label("Notice: Mesh Editor will NOT modify the source file (e.g. \n" +
                             "*.fbx) but just the imported mesh. Reimport the asset will \n" +
                             "revert all changes to the mesh.\n"+
                             "Select \"Edit On Original Mesh\" will affect all instances\n" +
                             "in project, otherwise a new mesh copy will be create.", GUILayout.Width(400));
-            GUILayout.Space(10);
-            
+            GUILayout.Space(20);
 
+            EditorGUILayout.LabelField("Face Editing Tools", EditorStyles.boldLabel);
             GUILayout.Label("Change material for selected faces");
-            if (GUILayout.Button("Change Material")) {
-                ChangeMaterial();
-            }
             createNewMaterial = GUILayout.Toggle(createNewMaterial, "Create New Material");
             if (createNewMaterial) {
 
@@ -88,20 +90,29 @@ public class MeshEditor : EditorWindow {
             else {
                 assignedMat = EditorGUILayout.ObjectField("Material to use", assignedMat, typeof(Material), true) as Material;
             }
-            if (GUILayout.Button("Extrude")) {
+            if (GUILayout.Button("Change Material", GUILayout.ExpandWidth(false))) {
+                ChangeMaterial();
+            }
+            GUILayout.Space(10);
+            GUILayout.Label("Extrude Selected Faces");
+            keepFaceTogether = GUILayout.Toggle(keepFaceTogether, "Keep face together");
+            if (GUILayout.Button("Extrude", GUILayout.ExpandWidth(false))) {
                 Extrude();
             }
-            keepFaceTogether = GUILayout.Toggle(keepFaceTogether, "Keep face together");
+            GUILayout.Space(10);
+            /*
             if (GUILayout.Button("Recalculate Normals")) {
                 if (mesh) {
                     mesh.RecalculateNormals();
                 }
             }
+            */
         }
         GUILayout.EndVertical();
     }
 
     void MeshEditMode() {
+        ExitMeshEditMode();
         selObj = Selection.activeGameObject;
         mesh = selObj.GetComponent<MeshFilter>().sharedMesh;
 
@@ -198,27 +209,7 @@ public class MeshEditor : EditorWindow {
             ExitMeshEditMode();
             editMode = EditMode.Object;
         }
-
-        // draw selection rect
-        if (lmbHold) {
-            GL.PushMatrix();
-            GL.LoadOrtho();
-            GL.Begin(GL.LINES);        
-            GL.Color(Color.white);
-            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
-            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
-            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
-            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
-            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
-            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
-            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
-            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
-            GL.End();
-            GL.PopMatrix();
-        }
-
-
-
+        DrawRectSelection(evt);
         HandleFastSel(evt);
         if (rmbHold) {
             DrawFastSel(evt);
@@ -275,126 +266,7 @@ public class MeshEditor : EditorWindow {
             }
         }
         else if (evt.type == EventType.MouseUp) {
-            if (evt.button == 0 && lmbHold) {
-                //Debug.Log("LMB Up");
-                if (lmbDownPos == evt.mousePosition) {
-                    lmbHold = false;
-                }
-                else {
-                    float left = Mathf.Min(lmbDownPos.x, evt.mousePosition.x);
-                    float top = Mathf.Min(lmbDownPos.y, evt.mousePosition.y);
-                    float width = Mathf.Abs(lmbDownPos.x - evt.mousePosition.x);
-                    float height = Mathf.Abs(lmbDownPos.y - evt.mousePosition.y);
-
-                    Rect selectionRect = new Rect(left, top, width, height);
-
-                    if (editMode == EditMode.Vertex && mesh != null) {
-                        if (!evt.shift)
-                            selectedVertices.Clear();
-                        for (int i = 0; i < mesh.vertices.Length; i++) {
-                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[i])))) {
-                                if (selectedVertices.Contains(i))
-                                    selectedVertices.Remove(i);
-                                else
-                                    selectedVertices.Add(i);
-                            }
-                        }
-                        handlePos = GetFaceAveragePosition(selectedVertices);
-                        handleRot = selObj.transform.rotation;
-                        handleScale = Vector3.one;
-                    }
-                    else if (editMode == EditMode.Face && mesh != null) {
-                        if (!evt.shift)
-                            selectedFaces.Clear();
-                        for (int i = 0; i < mesh.triangles.Length / 3; i++) {
-                            List<int> currentFace = new List<int> { mesh.triangles[3 * i], mesh.triangles[3 * i + 1], mesh.triangles[3 * i + 2] };
-                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i]]))) ||
-                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i + 1]]))) ||
-                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i + 2]])))) {
-                                if (selectedFacesIndex.Contains(i)) {
-                                    selectedFacesIndex.Remove(i);
-
-                                    for (int j = 0; j < selectedFaces.Count; j++) {
-                                        if (currentFace.SequenceEqual(selectedFaces[j])) {
-                                            selectedFaces.RemoveAt(j);
-                                            break;
-                                        }
-                                    }
-                                }
-                                else {
-                                    selectedFacesIndex.Add(i);
-                                    selectedFaces.Add(currentFace);
-                                }
-                            }
-                        }
-                        handlePos = GetFacesAveragePosition(selectedFaces);
-                        handleRot = selObj.transform.rotation;
-                        handleScale = Vector3.one;
-                    }
-                    else if (editMode == EditMode.Edge && mesh != null) {
-                        if (!evt.shift)
-                            selectedEdges.Clear();
-                        List<List<int>> addedThisRound = new List<List<int>>();
-                        List<List<int>> removedThisRound = new List<List<int>>();
-                        for (int i = 0; i < mesh.triangles.Length / 3; i++) {
-                            List<int> edge1 = new List<int> { mesh.triangles[3 * i], mesh.triangles[3 * i + 1] };
-                            List<int> edge2 = new List<int> { mesh.triangles[3 * i + 1], mesh.triangles[3 * i + 2] };
-                            List<int> edge3 = new List<int> { mesh.triangles[3 * i + 2], mesh.triangles[3 * i] };
-
-                            edge1.Sort();
-                            edge2.Sort();
-                            edge3.Sort();
-
-                            List<List<int>> edges = new List<List<int>> { edge1, edge2, edge3 };
-
-                            foreach (List<int> edge in edges) {
-                                if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[edge[0]]))) ||
-                                    selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[edge[1]])))) {
-
-
-                                    bool removed = false;
-                                    for (int j = 0; j < selectedEdges.Count; j++) {
-                                        if (edge.SequenceEqual(selectedEdges[j])) {
-                                            int k = 0;
-                                            for (k = 0; k < addedThisRound.Count; k++) {
-                                                if (edge.SequenceEqual(addedThisRound[k])) {
-                                                    removed = true;
-                                                    break;
-                                                }
-                                            }
-                                            if (k == addedThisRound.Count) {
-                                                selectedEdges.RemoveAt(j);
-                                                removedThisRound.Add(selectedEdges[j]);
-                                                removed = true;
-                                            }
-                                            if (removed)
-                                                break;
-                                        }
-                                    }
-
-                                    if (!removed) {
-                                        bool hasRemoved = false;
-                                        for (int j = 0; j < removedThisRound.Count; j++) {
-                                            if (edge.SequenceEqual(removedThisRound[j]))
-                                                hasRemoved = true;
-                                        }
-                                        if (!hasRemoved) {
-                                            selectedEdges.Add(edge);
-                                            addedThisRound.Add(edge);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        handlePos = GetFacesAveragePosition(selectedEdges);
-                        handleRot = selObj.transform.rotation;
-                        handleScale = Vector3.one;
-                    }
-
-                    lmbHold = false;
-                }
-            }
+            HandleRectSelection(evt);
         }
     }
 
@@ -748,6 +620,129 @@ public class MeshEditor : EditorWindow {
         }
     }
 
+    void HandleRectSelection(Event evt) {
+        if (evt.button == 0 && lmbHold) {
+            //Debug.Log("LMB Up");
+            if (lmbDownPos == evt.mousePosition) {
+                lmbHold = false;
+            }
+            else {
+                float left = Mathf.Min(lmbDownPos.x, evt.mousePosition.x);
+                float top = Mathf.Min(lmbDownPos.y, evt.mousePosition.y);
+                float width = Mathf.Abs(lmbDownPos.x - evt.mousePosition.x);
+                float height = Mathf.Abs(lmbDownPos.y - evt.mousePosition.y);
+
+                Rect selectionRect = new Rect(left, top, width, height);
+
+                if (editMode == EditMode.Vertex && mesh != null) {
+                    if (!evt.shift)
+                        selectedVertices.Clear();
+                    for (int i = 0; i < mesh.vertices.Length; i++) {
+                        if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[i])))) {
+                            if (selectedVertices.Contains(i))
+                                selectedVertices.Remove(i);
+                            else
+                                selectedVertices.Add(i);
+                        }
+                    }
+                    handlePos = GetFaceAveragePosition(selectedVertices);
+                    handleRot = selObj.transform.rotation;
+                    handleScale = Vector3.one;
+                }
+                else if (editMode == EditMode.Face && mesh != null) {
+                    if (!evt.shift)
+                        selectedFaces.Clear();
+                    for (int i = 0; i < mesh.triangles.Length / 3; i++) {
+                        List<int> currentFace = new List<int> { mesh.triangles[3 * i], mesh.triangles[3 * i + 1], mesh.triangles[3 * i + 2] };
+                        if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i]]))) ||
+                            selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i + 1]]))) ||
+                            selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i + 2]])))) {
+                            if (selectedFacesIndex.Contains(i)) {
+                                selectedFacesIndex.Remove(i);
+
+                                for (int j = 0; j < selectedFaces.Count; j++) {
+                                    if (currentFace.SequenceEqual(selectedFaces[j])) {
+                                        selectedFaces.RemoveAt(j);
+                                        break;
+                                    }
+                                }
+                            }
+                            else {
+                                selectedFacesIndex.Add(i);
+                                selectedFaces.Add(currentFace);
+                            }
+                        }
+                    }
+                    handlePos = GetFacesAveragePosition(selectedFaces);
+                    handleRot = selObj.transform.rotation;
+                    handleScale = Vector3.one;
+                }
+                else if (editMode == EditMode.Edge && mesh != null) {
+                    if (!evt.shift)
+                        selectedEdges.Clear();
+                    List<List<int>> addedThisRound = new List<List<int>>();
+                    List<List<int>> removedThisRound = new List<List<int>>();
+                    for (int i = 0; i < mesh.triangles.Length / 3; i++) {
+                        List<int> edge1 = new List<int> { mesh.triangles[3 * i], mesh.triangles[3 * i + 1] };
+                        List<int> edge2 = new List<int> { mesh.triangles[3 * i + 1], mesh.triangles[3 * i + 2] };
+                        List<int> edge3 = new List<int> { mesh.triangles[3 * i + 2], mesh.triangles[3 * i] };
+
+                        edge1.Sort();
+                        edge2.Sort();
+                        edge3.Sort();
+
+                        List<List<int>> edges = new List<List<int>> { edge1, edge2, edge3 };
+
+                        foreach (List<int> edge in edges) {
+                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[edge[0]]))) ||
+                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[edge[1]])))) {
+
+
+                                bool removed = false;
+                                for (int j = 0; j < selectedEdges.Count; j++) {
+                                    if (edge.SequenceEqual(selectedEdges[j])) {
+                                        int k = 0;
+                                        for (k = 0; k < addedThisRound.Count; k++) {
+                                            if (edge.SequenceEqual(addedThisRound[k])) {
+                                                removed = true;
+                                                break;
+                                            }
+                                        }
+                                        if (k == addedThisRound.Count) {
+                                            selectedEdges.RemoveAt(j);
+                                            removedThisRound.Add(selectedEdges[j]);
+                                            removed = true;
+                                        }
+                                        if (removed)
+                                            break;
+                                    }
+                                }
+
+                                if (!removed) {
+                                    bool hasRemoved = false;
+                                    for (int j = 0; j < removedThisRound.Count; j++) {
+                                        if (edge.SequenceEqual(removedThisRound[j]))
+                                            hasRemoved = true;
+                                    }
+                                    if (!hasRemoved) {
+                                        selectedEdges.Add(edge);
+                                        addedThisRound.Add(edge);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    handlePos = GetFacesAveragePosition(selectedEdges);
+                    handleRot = selObj.transform.rotation;
+                    handleScale = Vector3.one;
+                }
+
+                lmbHold = false;
+            }
+        }
+    }
+
     void HighlightSelectedEdges() {
         foreach (List<int> selectedEdge in selectedEdges) {
             GL.Begin(GL.LINES);
@@ -779,33 +774,61 @@ public class MeshEditor : EditorWindow {
 
         lastHandlePos = handlePos;
         handlePos = Handles.PositionHandle(handlePos, rot);
+        /*
+        Mesh oldMesh;
+        oldMesh = mesh;
+        oldMesh.vertices = mesh.vertices;
+        oldMesh.normals = mesh.normals;
+        oldMesh.uv = mesh.uv;
+        oldMesh.triangles = mesh.triangles;
+        oldMesh.tangents = mesh.tangents;
 
+        bool hasUsed = Event.current.type == EventType.used;
+        */
         HashSet<int> modifiedIndex = new HashSet<int>();
         if (lastHandlePos != handlePos) {
+            
+            //CacheUndoMeshBackup(mesh);
+            
             Vector3[] vertices = mesh.vertices;
+            
             foreach (List<int> face in vertexGroupList) {
                 foreach (int vertex in face) {
                     if (!modifiedIndex.Contains(vertex)) {
-                        vertices[vertex] += selObj.transform.InverseTransformDirection(handlePos - lastHandlePos);
+                        // per-face move
+                        //if (moveCoord == 2)
+                        //    vertices[vertex] += selObj.transform.InverseTransformDirection((handlePos - lastHandlePos).magnitude * GetFaceNormal(face));
+                        //else 
+                            vertices[vertex] += selObj.transform.InverseTransformDirection(handlePos - lastHandlePos);
                         modifiedIndex.Add(vertex);
+                        //EditorUtility.SetDirty(selObj);
                     }
                 }
             }
             mesh.vertices = vertices;
             UpdateMeshCollider();
-        }  
+        }
+        /*
+        if (!hasUsed && Event.current.type == EventType.used && holdingHandle == false) {
+            Debug.Log("oooo");
+            holdingHandle = true;
+            CacheUndoMeshBackup(oldMesh);
+        }
+        else if (Event.current.isMouse && Event.current.type != EventType.used && holdingHandle == true) {
+            Debug.Log("xxxx");
+            holdingHandle = false;
+        }
+        */
     }
 
     void RotateVertexGroup(List<List<int>> vertexGroupList) {
-        // not just work out of box
-        // need transformation to different coord and maintain offset
+        //if (rotCoord == 0)
+            handleRot = selObj.transform.rotation;
         /*
-        if (rotCoord == 0)
-            rot = selObj.transform.rotation;
         else if (rotCoord == 1)
-            rot = Quaternion.identity;
+            handleRot = Quaternion.identity;
         else if (rotCoord == 2)
-            rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
+            handleRot = Quaternion.LookRotation(GetFaceNormal(vertexGroupList[0]));
         */
 
         lastHandleRot = handleRot;
@@ -890,7 +913,6 @@ public class MeshEditor : EditorWindow {
             foreach (int vertex in selectedVertices) {
                 if (!modifiedIndex.Contains(vertex)) {
                     vertices[vertex] += selObj.transform.InverseTransformDirection(handlePos - lastHandlePos);
-                    //vertObj[vertex].transform.position = selObj.transform.TransformPoint(vertices[vertex]);
                     modifiedIndex.Add(vertex);
                 }
             }
@@ -988,6 +1010,10 @@ public class MeshEditor : EditorWindow {
                 moveElement = false;
                 rotElement = false;
             }
+            if (GUILayout.Button(EditorGUIUtility.Load("MeshEditor/scale.png") as Texture)) {
+                Debug.Log("Undo");
+                UndoMeshChanges();
+            }
         }, "Tools");
 
         if (moveElement) {
@@ -1012,6 +1038,26 @@ public class MeshEditor : EditorWindow {
             }, "Scale Tool");
         }
         Handles.EndGUI();
+    }
+
+    void DrawRectSelection(Event evt) {
+        // draw selection rect
+        if (lmbHold) {
+            GL.PushMatrix();
+            GL.LoadOrtho();
+            GL.Begin(GL.LINES);
+            GL.Color(Color.white);
+            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+            GL.Vertex3(lmbDownPos.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+            GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+            GL.End();
+            GL.PopMatrix();
+        }
     }
 
     void DrawFastSel(Event evt) {
@@ -1141,6 +1187,26 @@ public class MeshEditor : EditorWindow {
     void UpdateMeshCollider() {
         selObj.GetComponent<MeshCollider>().sharedMesh = null;
         selObj.GetComponent<MeshCollider>().sharedMesh = mesh;
+    }
+
+    void CacheUndoMeshBackup(Mesh oldMesh) {
+        undoMeshBackup = oldMesh;
+        undoMeshBackup.vertices = oldMesh.vertices;
+        undoMeshBackup.normals = oldMesh.normals;
+        undoMeshBackup.uv = oldMesh.uv;
+        undoMeshBackup.triangles = oldMesh.triangles;
+        undoMeshBackup.tangents = oldMesh.tangents;
+    }
+
+    void UndoMeshChanges() {
+        if (undoMeshBackup == null) return;
+        mesh = undoMeshBackup;
+        mesh.vertices = undoMeshBackup.vertices;
+        mesh.normals = undoMeshBackup.normals;
+        mesh.uv = undoMeshBackup.uv;
+        mesh.triangles = undoMeshBackup.triangles;
+        mesh.tangents = undoMeshBackup.tangents;
+        UpdateMeshCollider();
     }
 
     void ChangeMaterial() {
