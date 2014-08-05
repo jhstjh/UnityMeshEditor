@@ -425,12 +425,17 @@ public class MeshEditor : EditorWindow {
         Ray worldRay = HandleUtility.GUIPointToWorldRay(evt.mousePosition);
         RaycastHit hitInfo;
         if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
-            GL.Begin(GL.TRIANGLES);
-            GL.Color(new Color(1, 0, 0, 0.5f));
-            GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]));
-            GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]));
-            GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]));
-            GL.End();
+            if (evt.type == EventType.repaint) {
+                GL.PushMatrix();
+                GL.Begin(GL.TRIANGLES);
+                GL.Color(new Color(1, 0, 0, 0.5f));
+                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]));
+                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]));
+                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]));
+                GL.End();
+                GL.PopMatrix();
+            }
+
 
             if (evt.type == EventType.MouseDown) {
                 List<int> selectedFace = new List<int>();
@@ -830,10 +835,11 @@ public class MeshEditor : EditorWindow {
             rot = Quaternion.LookRotation(GetFaceNormal(vertexGroupList[0]));
 
         lastHandleScale = handleScale;
-        handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, HandleUtility.GetHandleSize(handlePos));
+        handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, /*HandleUtility.GetHandleSize(handlePos)*/20.0f/3);
         Vector3[] vertices = mesh.vertices;
         bool updated = false;
 
+        
         if (lastHandleScale != handleScale) {
             HashSet<int> modifiedIndex = new HashSet<int>();           
             foreach (List<int> face in vertexGroupList) {
