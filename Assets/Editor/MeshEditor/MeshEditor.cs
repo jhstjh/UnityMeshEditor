@@ -234,12 +234,12 @@ public class MeshEditor : EditorWindow {
             if (evt.isKey) 
                 HandleHotKey(evt);
             HighlightVertices();
-            if (moveElement && selectedVertices.Count != 0) 
-                MoveVertex();
-            if (rotElement && selectedVertices.Count != 0) 
-                RotateVertex();
-            if (scaleElement && selectedVertices.Count != 0) 
-                ScaleVertex();
+            if (moveElement && selectedVertices.Count != 0)
+                MoveVertexGroup(new List<List<int>> { selectedVertices });
+            if (rotElement && selectedVertices.Count != 0)
+                RotateVertexGroup(new List<List<int>> { selectedVertices });
+            if (scaleElement && selectedVertices.Count != 0)
+                ScaleVertexGroup(new List<List<int>> { selectedVertices });
             HandleVertexSelection(Event.current);
             HandleUtility.Repaint();
         }
@@ -775,24 +775,11 @@ public class MeshEditor : EditorWindow {
 
         lastHandlePos = handlePos;
         handlePos = Handles.PositionHandle(handlePos, rot);
-       
-        Mesh oldMesh;
-        oldMesh = mesh;
-        oldMesh.vertices = mesh.vertices;
-        oldMesh.normals = mesh.normals;
-        oldMesh.uv = mesh.uv;
-        oldMesh.triangles = mesh.triangles;
-        oldMesh.tangents = mesh.tangents;
 
-        //bool hasUsed = Event.current.type == EventType.used;
-        //Debug.Log(hasUsed);
+        Vector3[] vertices = mesh.vertices;
         HashSet<int> modifiedIndex = new HashSet<int>();
-        if (lastHandlePos != handlePos) {
-            
-            //CacheUndoMeshBackup(mesh);
-            
-            Vector3[] vertices = mesh.vertices;
-            
+        bool updated = false;
+        if (lastHandlePos != handlePos) {                      
             foreach (List<int> face in vertexGroupList) {
                 foreach (int vertex in face) {
                     if (!modifiedIndex.Contains(vertex)) {
@@ -802,29 +789,29 @@ public class MeshEditor : EditorWindow {
                         //else 
                             vertices[vertex] += selObj.transform.InverseTransformDirection(handlePos - lastHandlePos);
                         modifiedIndex.Add(vertex);
-                        //EditorUtility.SetDirty(selObj);
+                        updated = true;
                     }
                 }
             }
-            mesh.vertices = vertices;
-            UpdateMeshCollider();
         } 
         
-        if (/*Event.current.isMouse && Event.current.button == 0 && !hasUsed && */Event.current.type == EventType.used && holdingHandle == false) {
-            Debug.Log("oooo");
+        if (Event.current.type == EventType.used && holdingHandle == false) {
             holdingHandle = true;
-            CacheUndoMeshBackup(oldMesh);
+            CacheUndoMeshBackup(mesh);
         }
         else if (Event.current.isMouse && Event.current.button == 0 && Event.current.type != EventType.used && holdingHandle == true) {
-            Debug.Log("xxxx");
             holdingHandle = false;
         }
-        
+        if (updated) {
+            mesh.vertices = vertices;
+            UpdateMeshCollider();
+        }
     }
 
     void RotateVertexGroup(List<List<int>> vertexGroupList) {
+        if (Event.current.type == EventType.used) return;
         //if (rotCoord == 0)
-            handleRot = selObj.transform.rotation;
+            //handleRot = selObj.transform.rotation;
         /*
         else if (rotCoord == 1)
             handleRot = Quaternion.identity;
@@ -835,11 +822,11 @@ public class MeshEditor : EditorWindow {
         lastHandleRot = handleRot;
         handleRot = Handles.RotationHandle(handleRot, handlePos);
         //Debug.Log(handleRot);
-
+        Vector3[] vertices = mesh.vertices;
+        bool updated = false;
         HashSet<int> modifiedIndex = new HashSet<int>();
         if (lastHandleRot != handleRot) { // does not work!
-            //Debug.Log("Rotate");
-            Vector3[] vertices = mesh.vertices;
+            //Debug.Log("Rotate");          
             foreach (List<int> face in vertexGroupList) {
                 foreach (int vertex in face) {
                     if (!modifiedIndex.Contains(vertex)) {
@@ -848,15 +835,26 @@ public class MeshEditor : EditorWindow {
                         Vector3 newCenterToVert = oldToNewRot * centerToVert;
                         vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos + newCenterToVert);
                         modifiedIndex.Add(vertex);
+                        updated = true;
                     }
                 }
             }
+        }
+        if (Event.current.type == EventType.used && holdingHandle == false) {
+            holdingHandle = true;
+            CacheUndoMeshBackup(mesh);
+        }
+        else if (Event.current.isMouse && Event.current.button == 0 && Event.current.type != EventType.used && holdingHandle == true) {
+            holdingHandle = false;
+        }
+        if (updated) {
             mesh.vertices = vertices;
             UpdateMeshCollider();
         }
     }
 
     void ScaleVertexGroup(List<List<int>> vertexGroupList) {
+        if (Event.current.type == EventType.used) return;
         Quaternion rot = new Quaternion();
 
         if (scaleCoord == 0)
@@ -868,12 +866,11 @@ public class MeshEditor : EditorWindow {
 
         lastHandleScale = handleScale;
         handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, 2.5f);
-        //Debug.Log(handleScale);
+        Vector3[] vertices = mesh.vertices;
+        bool updated = false;
 
         if (lastHandleScale != handleScale) {
-            HashSet<int> modifiedIndex = new HashSet<int>();
-
-            Vector3[] vertices = mesh.vertices;
+            HashSet<int> modifiedIndex = new HashSet<int>();           
             foreach (List<int> face in vertexGroupList) {
                 foreach (int vertex in face) {
                     if (!modifiedIndex.Contains(vertex)) {
@@ -884,110 +881,19 @@ public class MeshEditor : EditorWindow {
 
                         vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos) + centerToVert;
                         modifiedIndex.Add(vertex);
+                        updated = true;
                     }
                 }
             }
-            mesh.vertices = vertices;
-            UpdateMeshCollider();
         }
-    }
-
-    void MoveVertex() {
-
-        Quaternion rot = new Quaternion();
-
-        if (moveCoord == 0)
-            rot = selObj.transform.rotation;
-        else if (moveCoord == 1)
-            rot = Quaternion.identity;
-        else if (moveCoord == 2)
-            rot = Quaternion.LookRotation(mesh.normals[selectedVertices[0]]);
-
-        lastHandlePos = handlePos;
-        handlePos = Handles.PositionHandle(handlePos, rot);
-
-        //Debug.Log(handlePos);
-
-        HashSet<int> modifiedIndex = new HashSet<int>();
-        if (lastHandlePos != handlePos) {
-            Vector3[] vertices = mesh.vertices;
-            foreach (int vertex in selectedVertices) {
-                if (!modifiedIndex.Contains(vertex)) {
-                    vertices[vertex] += selObj.transform.InverseTransformDirection(handlePos - lastHandlePos);
-                    modifiedIndex.Add(vertex);
-                }
-            }
-
-            mesh.vertices = vertices;
-            UpdateMeshCollider();
+        if (Event.current.type == EventType.used && holdingHandle == false) {
+            holdingHandle = true;
+            CacheUndoMeshBackup(mesh);
         }
-    }
-
-    void ScaleVertex() {
-        Quaternion rot = new Quaternion();
-
-        if (scaleCoord == 0)
-            rot = selObj.transform.rotation;
-        else if (scaleCoord == 1)
-            rot = Quaternion.identity;
-        else if (scaleCoord == 2)
-            rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
-
-        lastHandleScale = handleScale;
-        handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, 2.5f);
-        //Debug.Log(handleScale);
-
-        if (lastHandleScale != handleScale) {
-            HashSet<int> modifiedIndex = new HashSet<int>();
-
-            Vector3[] vertices = mesh.vertices;
-
-            foreach (int vertex in selectedVertices) {
-                if (!modifiedIndex.Contains(vertex)) {
-                    Vector3 centerToVert = vertices[vertex] - selObj.transform.InverseTransformPoint(handlePos);
-                    centerToVert.x *= (handleScale.x / lastHandleScale.x);
-                    centerToVert.y *= (handleScale.y / lastHandleScale.y);
-                    centerToVert.z *= (handleScale.z / lastHandleScale.z);
-
-                    vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos) + centerToVert;
-                    modifiedIndex.Add(vertex);
-                }
-            }
-
-            mesh.vertices = vertices;
-            UpdateMeshCollider();
+        else if (Event.current.isMouse && Event.current.button == 0 && Event.current.type != EventType.used && holdingHandle == true) {
+            holdingHandle = false;
         }
-    }
-
-    void RotateVertex() {
-        // not just work out of box
-        // need transformation to different coord and maintain offset
-        /*
-        if (rotCoord == 0)
-            rot = selObj.transform.rotation;
-        else if (rotCoord == 1)
-            rot = Quaternion.identity;
-        else if (rotCoord == 2)
-            rot = Quaternion.LookRotation(GetFaceNormal(selectedFaces[0]));
-        */
-
-        lastHandleRot = handleRot;
-        handleRot = Handles.RotationHandle(handleRot, handlePos);
-        //Debug.Log(handleRot);
-
-        HashSet<int> modifiedIndex = new HashSet<int>();
-        if (lastHandleRot != handleRot) { // does not work!
-            //Debug.Log("Rotate");
-            Vector3[] vertices = mesh.vertices;
-            foreach (int vertex in selectedVertices) {
-                if (!modifiedIndex.Contains(vertex)) {
-                    Vector3 centerToVert = selObj.transform.TransformPoint(vertices[vertex]) - handlePos;
-                    Quaternion oldToNewRot = handleRot * Quaternion.Inverse(lastHandleRot);
-                    Vector3 newCenterToVert = oldToNewRot * centerToVert;
-                    vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos + newCenterToVert);
-                    modifiedIndex.Add(vertex);
-                }
-            }
+        if (updated) {
             mesh.vertices = vertices;
             UpdateMeshCollider();
         }
@@ -1209,6 +1115,16 @@ public class MeshEditor : EditorWindow {
         mesh.triangles = undoMeshBackup.triangles;
         mesh.tangents = undoMeshBackup.tangents;
         UpdateMeshCollider();
+
+        if (editMode == EditMode.Face)
+            handlePos = GetFacesAveragePosition(selectedFaces);
+        if (editMode == EditMode.Vertex)
+            handlePos = GetFaceAveragePosition(selectedVertices);
+        if (editMode == EditMode.Edge)
+            handlePos = GetFacesAveragePosition(selectedEdges);
+
+        handleRot = selObj.transform.rotation;
+        handleScale = Vector3.one;
         Debug.Log("Undo");
     }
 
