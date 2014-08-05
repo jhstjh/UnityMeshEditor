@@ -22,7 +22,6 @@ public class MeshEditor : EditorWindow {
 
     GameObject selObj = null;
     Mesh mesh = null;
-    Mesh undoMeshBackup = null;
 
     int moveCoord = 0;
     Vector3 lastHandlePos;
@@ -47,6 +46,7 @@ public class MeshEditor : EditorWindow {
     Dictionary<int, int> vertexMapping = new Dictionary<int, int>();
     Dictionary<HashSet<int>, int> edgeOccurance = new Dictionary<HashSet<int>, int>(new HashSetEqualityComparer<int>());
     Material assignedMat = null;
+    List<Mesh> meshUndoList = new List<Mesh>(10);
 
     EditMode editMode = EditMode.Object;
 
@@ -219,45 +219,47 @@ public class MeshEditor : EditorWindow {
             HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
             if (evt.isKey) 
                 HandleHotKey(evt);
-            HighlightSelectedFaces();
+            if (evt.type == EventType.repaint)
+                HighlightSelectedFaces();
+            HandleFaceSelection(Event.current);
             if (moveElement && selectedFaces.Count != 0) 
                 MoveVertexGroup(selectedFaces);
             else if (rotElement && selectedFaces.Count != 0)
                 RotateVertexGroup(selectedFaces);   
             else if (scaleElement && selectedFaces.Count != 0)
                 ScaleVertexGroup(selectedFaces);
-            HandleFaceSelection(Event.current);
             HandleUtility.Repaint();
         }
         else if (editMode == EditMode.Vertex && mesh != null) {
             HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
             if (evt.isKey) 
                 HandleHotKey(evt);
-            HighlightVertices();
+            if (evt.type == EventType.repaint)
+                HighlightVertices();
+            HandleVertexSelection(Event.current);
             if (moveElement && selectedVertices.Count != 0)
                 MoveVertexGroup(new List<List<int>> { selectedVertices });
             if (rotElement && selectedVertices.Count != 0)
                 RotateVertexGroup(new List<List<int>> { selectedVertices });
             if (scaleElement && selectedVertices.Count != 0)
                 ScaleVertexGroup(new List<List<int>> { selectedVertices });
-            HandleVertexSelection(Event.current);
             HandleUtility.Repaint();
         }
         else if (editMode == EditMode.Edge && mesh != null) {
             HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
             if (evt.isKey) 
                 HandleHotKey(evt);
-            HighlightSelectedEdges(); 
+            if (evt.type == EventType.repaint)
+                HighlightSelectedEdges();
+            HandleEdgeSelection(Event.current);
             if (moveElement && selectedEdges.Count != 0)
                 MoveVertexGroup(selectedEdges);
             else if (rotElement && selectedEdges.Count != 0)
                 RotateVertexGroup(selectedEdges);
             else if (scaleElement && selectedEdges.Count != 0)
                 ScaleVertexGroup(selectedEdges);
-            HandleEdgeSelection(Event.current);
             HandleUtility.Repaint();
         }
-
         if (evt.type == EventType.MouseDown && !evt.alt && editMode != EditMode.Object) {
             if (evt.button == 0 && !lmbHold) {
                 lmbDownPos = evt.mousePosition;
@@ -416,8 +418,6 @@ public class MeshEditor : EditorWindow {
         Ray worldRay = HandleUtility.GUIPointToWorldRay(evt.mousePosition);
         RaycastHit hitInfo;
         if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
-            //Debug.Log(hitInfo.triangleIndex);
-
             GL.Begin(GL.TRIANGLES);
             GL.Color(new Color(1, 0, 0, 0.5f));
             GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]));
@@ -430,7 +430,6 @@ public class MeshEditor : EditorWindow {
                 selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
                 selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
                 selectedFace.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
-                //selectedFacesIndex.Add(hitInfo.triangleIndex);
 
                 bool removed = false;
                 for (int i = 0; i < selectedFaces.Count; i++) {
@@ -522,7 +521,6 @@ public class MeshEditor : EditorWindow {
     }
 
     void HandleVertexSelection(Event evt) {
-#if true
         Ray worldRay = HandleUtility.GUIPointToWorldRay(evt.mousePosition);
         RaycastHit hitInfo;
         if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
@@ -550,8 +548,6 @@ public class MeshEditor : EditorWindow {
             }
 
             if (evt.type == EventType.MouseDown && highLightedVertex != -1) {
-                //int vertIdx = vertObj.IndexOf(hitInfo.collider.gameObject);
-
                 if (!Event.current.shift) {
                     selectedVertices.Clear();
                     selectedVertices.Add(highLightedVertex);
@@ -568,44 +564,6 @@ public class MeshEditor : EditorWindow {
                 handleScale = Vector3.one;
             }
         }
-#else
-        Ray worldRay = HandleUtility.GUIPointToWorldRay(evt.mousePosition);
-        RaycastHit hitInfo;
-        if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject.name.Contains("VertHelper_")) {
-
-            /*
-            Vector2 vertScreenPos = HandleUtility.WorldToGUIPoint(hitInfo.collider.gameObject.transform.position);
-            GL.PushMatrix();
-            GL.LoadOrtho();
-            GL.Begin(GL.QUADS);
-            GL.Color(Color.red);
-            GL.Vertex(new Vector3((vertScreenPos.x - 2) / Screen.width, 1 - (vertScreenPos.y - 2) / Screen.height, 0));
-            GL.Vertex(new Vector3((vertScreenPos.x + 2) / Screen.width, 1 - (vertScreenPos.y - 2) / Screen.height, 0));
-            GL.Vertex(new Vector3((vertScreenPos.x + 2) / Screen.width, 1 - (vertScreenPos.y + 2) / Screen.height, 0));
-            GL.Vertex(new Vector3((vertScreenPos.x - 2) / Screen.width, 1 - (vertScreenPos.y + 2) / Screen.height, 0));
-            GL.End();
-            GL.PopMatrix();
-            */
-
-            HandleUtility.AddDefaultControl(GUIUtility.GetControlID(FocusType.Passive));
-            if (evt.type == EventType.MouseDown) {
-                int vertIdx = vertObj.IndexOf(hitInfo.collider.gameObject);
-
-                if (selectedVertices.Contains(vertIdx))
-                    selectedVertices.Remove(vertIdx);
-                else {
-                    if (!Event.current.shift) {
-                        selectedVertices.Clear();
-                    }
-                    selectedVertices.Add(vertIdx);
-                }
-
-                handlePos = GetFaceAveragePosition(selectedVertices);
-                handleRot = selObj.transform.rotation;
-                handleScale = Vector3.one;
-            }
-        }
-#endif
     }
 
     void HighlightSelectedFaces() {
@@ -865,7 +823,7 @@ public class MeshEditor : EditorWindow {
             rot = Quaternion.LookRotation(GetFaceNormal(vertexGroupList[0]));
 
         lastHandleScale = handleScale;
-        handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, 2.5f);
+        handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, HandleUtility.GetHandleSize(handlePos));
         Vector3[] vertices = mesh.vertices;
         bool updated = false;
 
@@ -917,8 +875,9 @@ public class MeshEditor : EditorWindow {
                 moveElement = false;
                 rotElement = false;
             }
-            if (GUILayout.Button(EditorGUIUtility.Load("MeshEditor/scale.png") as Texture)) {
-                Debug.Log("Undo");
+            Texture undoableIcon = EditorGUIUtility.Load("MeshEditor/undo.png") as Texture;
+            Texture unundoableIcon = EditorGUIUtility.Load("MeshEditor/unundoable.png") as Texture;
+            if (GUILayout.Button(meshUndoList.Count == 0? unundoableIcon: undoableIcon)) {
                 UndoMeshChanges();
             }
         }, "Tools");
@@ -1097,18 +1056,22 @@ public class MeshEditor : EditorWindow {
     }
 
     void CacheUndoMeshBackup(Mesh oldMesh) {
-        Debug.Log("Saved Old Mesh");
-        undoMeshBackup = new Mesh();
-        undoMeshBackup.vertices = oldMesh.vertices;
-        undoMeshBackup.normals = oldMesh.normals;
-        undoMeshBackup.uv = oldMesh.uv;
-        undoMeshBackup.triangles = oldMesh.triangles;
-        undoMeshBackup.tangents = oldMesh.tangents;
+        //Debug.Log("Saved Old Mesh");
+        Mesh meshBackup = new Mesh();
+        meshBackup.vertices = oldMesh.vertices;
+        meshBackup.normals = oldMesh.normals;
+        meshBackup.uv = oldMesh.uv;
+        meshBackup.triangles = oldMesh.triangles;
+        meshBackup.tangents = oldMesh.tangents;
+        if (meshUndoList.Count >= 10)
+            meshUndoList.RemoveAt(0);
+        meshUndoList.Add(meshBackup);
     }
 
     void UndoMeshChanges() {
-        if (undoMeshBackup == null) return;
-        //mesh = new Mesh();
+        if (meshUndoList.Count == 0) return;
+        Mesh undoMeshBackup = meshUndoList[meshUndoList.Count - 1];
+        meshUndoList.RemoveAt(meshUndoList.Count - 1);
         mesh.vertices = undoMeshBackup.vertices;
         mesh.normals = undoMeshBackup.normals;
         mesh.uv = undoMeshBackup.uv;
@@ -1125,6 +1088,7 @@ public class MeshEditor : EditorWindow {
 
         handleRot = selObj.transform.rotation;
         handleScale = Vector3.one;
+        undoMeshBackup = null;
         Debug.Log("Undo");
     }
 
