@@ -15,7 +15,7 @@ public class MeshEditor : EditorWindow {
     bool rmbHold = false;
     bool lmbHold = false;
     bool keepFaceTogether = false;
-    bool editOnOriginalMesh = true;
+    bool editOnOriginalMesh = false;
     bool holdingHandle = false;
     Vector2 rmbMousePos;
     Vector2 lmbDownPos;
@@ -114,7 +114,13 @@ public class MeshEditor : EditorWindow {
     void MeshEditMode() {
         ExitMeshEditMode();
         selObj = Selection.activeGameObject;
-        mesh = selObj.GetComponent<MeshFilter>().sharedMesh;
+        if (editOnOriginalMesh)
+            mesh = selObj.GetComponent<MeshFilter>().sharedMesh;
+        else {
+            mesh = new Mesh();
+            mesh = (Mesh)Instantiate(selObj.GetComponent<MeshFilter>().sharedMesh);
+            selObj.GetComponent<MeshFilter>().sharedMesh = mesh;
+        }
 
         if (selObj.GetComponent<MeshCollider>() == null) {
             MeshCollider mc = selObj.AddComponent<MeshCollider>();
@@ -329,6 +335,7 @@ public class MeshEditor : EditorWindow {
         List<List<int>> extrudedFaces = new List<List<int>>();
         List<int> extrudedFacesIndex = new List<int>();
 
+        CacheUndoMeshBackup(mesh);
         edgeOccurance.Clear();
         foreach (List<int> selectedFace in selectedFaces) {
             for (int i = 0; i < 3; i++) {
@@ -1027,7 +1034,6 @@ public class MeshEditor : EditorWindow {
     }
 
     Vector3 GetFaceAveragePosition(List<int> face) {
-        //return (selObj.transform.TransformPoint(mesh.vertices[face[0]]) + selObj.transform.TransformPoint(mesh.vertices[face[1]]) + selObj.transform.TransformPoint(mesh.vertices[face[2]])) / 3;
         Vector3 result = Vector3.zero;
         foreach (int idx in face) {
             result += selObj.transform.TransformPoint(mesh.vertices[idx]);
@@ -1058,11 +1064,8 @@ public class MeshEditor : EditorWindow {
     void CacheUndoMeshBackup(Mesh oldMesh) {
         //Debug.Log("Saved Old Mesh");
         Mesh meshBackup = new Mesh();
-        meshBackup.vertices = oldMesh.vertices;
-        meshBackup.normals = oldMesh.normals;
-        meshBackup.uv = oldMesh.uv;
-        meshBackup.triangles = oldMesh.triangles;
-        meshBackup.tangents = oldMesh.tangents;
+        meshBackup = (Mesh)Instantiate(oldMesh);
+        meshBackup.name = oldMesh.name;
         if (meshUndoList.Count >= 10)
             meshUndoList.RemoveAt(0);
         meshUndoList.Add(meshBackup);
@@ -1072,23 +1075,19 @@ public class MeshEditor : EditorWindow {
         if (meshUndoList.Count == 0) return;
         Mesh undoMeshBackup = meshUndoList[meshUndoList.Count - 1];
         meshUndoList.RemoveAt(meshUndoList.Count - 1);
-        mesh.vertices = undoMeshBackup.vertices;
-        mesh.normals = undoMeshBackup.normals;
-        mesh.uv = undoMeshBackup.uv;
-        mesh.triangles = undoMeshBackup.triangles;
-        mesh.tangents = undoMeshBackup.tangents;
+        mesh = (Mesh)Instantiate(undoMeshBackup);
+        mesh.name = undoMeshBackup.name;
+        selObj.GetComponent<MeshFilter>().sharedMesh = mesh;
         UpdateMeshCollider();
-
-        if (editMode == EditMode.Face)
-            handlePos = GetFacesAveragePosition(selectedFaces);
-        if (editMode == EditMode.Vertex)
-            handlePos = GetFaceAveragePosition(selectedVertices);
-        if (editMode == EditMode.Edge)
-            handlePos = GetFacesAveragePosition(selectedEdges);
 
         handleRot = selObj.transform.rotation;
         handleScale = Vector3.one;
         undoMeshBackup = null;
+        selectedFaces.Clear();
+        selectedFacesIndex.Clear();
+        selectedVertices.Clear();
+        selectedEdges.Clear();
+        UpdateMeshCollider();
         Debug.Log("Undo");
     }
 
@@ -1098,14 +1097,7 @@ public class MeshEditor : EditorWindow {
             return;
         }
 
-        Mesh newMesh = new Mesh();
-        newMesh.vertices = mesh.vertices;
-        newMesh.normals = mesh.normals;
-        newMesh.uv = mesh.uv;
-        newMesh.subMeshCount = mesh.subMeshCount;
- 
-        Debug.Log("SubMesh before Operation: " + newMesh.subMeshCount);
-        
+        //CacheUndoMeshBackup(mesh);
         int subMeshIdx = 0;
         foreach (List<List<int>> realTriangleArray in realTriangleArrayWithSubMeshSeparated)
         {
@@ -1128,19 +1120,19 @@ public class MeshEditor : EditorWindow {
                 newTriangleList.AddRange(triangle);
             }
 
-            newMesh.SetTriangles(newTriangleList.ToArray(), subMeshIdx);
+            mesh.SetTriangles(newTriangleList.ToArray(), subMeshIdx);
             subMeshIdx++;
         }
-        newMesh.subMeshCount += 1;
+        mesh.subMeshCount += 1;
 
         List<int> selectedTriangleList = new List<int>();
         foreach (List<int> selectedFace in selectedFaces) {
             selectedTriangleList.AddRange(selectedFace);
         }
-        newMesh.SetTriangles(selectedTriangleList.ToArray(), newMesh.subMeshCount - 1);
+        mesh.SetTriangles(selectedTriangleList.ToArray(), mesh.subMeshCount - 1);
 
-        AssetDatabase.CreateAsset(newMesh, "Assets/Mesh/" + selObj.name);
-        AssetDatabase.Refresh();
+        //AssetDatabase.CreateAsset(newMesh, "Assets/Mesh/" + selObj.name);
+        //AssetDatabase.Refresh();
         
         List<Material> materials = new List<Material>();
         materials.AddRange(selObj.renderer.sharedMaterials);
@@ -1151,33 +1143,32 @@ public class MeshEditor : EditorWindow {
         }
         else {
             Material newMat = new Material(Shader.Find("Diffuse"));
-            AssetDatabase.CreateAsset(newMat, "Assets/Material/newMat_" + newMesh.subMeshCount + ".mat");
+            AssetDatabase.CreateAsset(newMat, "Assets/Material/newMat_" + mesh.subMeshCount + ".mat");
             AssetDatabase.Refresh();
             newMat.color = Color.blue;
 
             materials.Add(newMat);
         }
 
-        newMesh.Optimize();
+        mesh.Optimize();
 
-        selObj.GetComponent<MeshFilter>().sharedMesh = newMesh;
+        selObj.GetComponent<MeshFilter>().sharedMesh = mesh;
         selObj.renderer.sharedMaterials = materials.ToArray();
 
-        Debug.Log("SubMesh after Operation: " + newMesh.subMeshCount);
-
         if (hasMeshCollider)
-            selObj.GetComponent<MeshCollider>().sharedMesh = newMesh;
+            selObj.GetComponent<MeshCollider>().sharedMesh = mesh;
         else
             DestroyImmediate(selObj.GetComponent<MeshCollider>());
         realTriangleArrayWithSubMeshSeparated.Clear();
         selectedFaces.Clear();
-        Selection.objects = new UnityEngine.Object[0];
-        selObj = null;
-        mesh = null;
+        selectedFacesIndex.Clear();
+        UpdateMeshCollider();
+        //editMode = EditMode.Object;
+        //ExitMeshEditMode();
+        //Selection.objects = new UnityEngine.Object[0];
     }
 
     void OnEnable() {
-        //MeshEditMode();
         SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
         SceneView.onSceneGUIDelegate += this.OnSceneGUI;
     }
