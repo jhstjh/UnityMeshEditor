@@ -220,7 +220,6 @@ public class MeshEditor : EditorWindow {
             if (evt.isKey) 
                 HandleHotKey(evt);
             if (evt.type == EventType.repaint)
-                HighlightSelectedFaces();
             HandleFaceSelection(Event.current);
             if (moveElement && selectedFaces.Count != 0) 
                 MoveVertexGroup(selectedFaces);
@@ -228,6 +227,7 @@ public class MeshEditor : EditorWindow {
                 RotateVertexGroup(selectedFaces);   
             else if (scaleElement && selectedFaces.Count != 0)
                 ScaleVertexGroup(selectedFaces);
+            HighlightSelectedFaces();
             HandleUtility.Repaint();
         }
         else if (editMode == EditMode.Vertex && mesh != null) {
@@ -236,13 +236,13 @@ public class MeshEditor : EditorWindow {
                 HandleHotKey(evt);
             if (evt.type == EventType.repaint)
                 HighlightVertices();
-            HandleVertexSelection(Event.current);
             if (moveElement && selectedVertices.Count != 0)
                 MoveVertexGroup(new List<List<int>> { selectedVertices });
             if (rotElement && selectedVertices.Count != 0)
                 RotateVertexGroup(new List<List<int>> { selectedVertices });
             if (scaleElement && selectedVertices.Count != 0)
                 ScaleVertexGroup(new List<List<int>> { selectedVertices });
+            HandleVertexSelection(Event.current);
             HandleUtility.Repaint();
         }
         else if (editMode == EditMode.Edge && mesh != null) {
@@ -251,13 +251,13 @@ public class MeshEditor : EditorWindow {
                 HandleHotKey(evt);
             if (evt.type == EventType.repaint)
                 HighlightSelectedEdges();
-            HandleEdgeSelection(Event.current);
             if (moveElement && selectedEdges.Count != 0)
                 MoveVertexGroup(selectedEdges);
             else if (rotElement && selectedEdges.Count != 0)
                 RotateVertexGroup(selectedEdges);
             else if (scaleElement && selectedEdges.Count != 0)
                 ScaleVertexGroup(selectedEdges);
+            HandleEdgeSelection(Event.current);
             HandleUtility.Repaint();
         }
         if (evt.type == EventType.MouseDown && !evt.alt && editMode != EditMode.Object) {
@@ -860,24 +860,24 @@ public class MeshEditor : EditorWindow {
     void DrawToolBar() {
         Handles.BeginGUI();
         GUILayout.Window(2, new Rect(10, 20, 50, 50), (id) => {
-            moveElement = GUILayout.Toggle(moveElement, EditorGUIUtility.Load("MeshEditor/move.png") as Texture, "Button");
+            moveElement = GUILayout.Toggle(moveElement, Resources.LoadAssetAtPath("Assets/Editor/MeshEditor/MeshEditorUI/move.png", typeof(Texture)) as Texture, "Button");
             if (moveElement) {
                 rotElement = false;
                 scaleElement = false;
             }
-            rotElement = GUILayout.Toggle(rotElement, EditorGUIUtility.Load("MeshEditor/rotate.png") as Texture, "Button");
+            rotElement = GUILayout.Toggle(rotElement, Resources.LoadAssetAtPath("Assets/Editor/MeshEditor/MeshEditorUI/rotate.png", typeof(Texture)) as Texture, "Button");
             if (rotElement) {
                 moveElement = false;
                 scaleElement = false;
             }
-            scaleElement = GUILayout.Toggle(scaleElement, EditorGUIUtility.Load("MeshEditor/scale.png") as Texture, "Button");
+            scaleElement = GUILayout.Toggle(scaleElement, Resources.LoadAssetAtPath("Assets/Editor/MeshEditor/MeshEditorUI/scale.png", typeof(Texture)) as Texture, "Button");
             if (scaleElement) {
                 moveElement = false;
                 rotElement = false;
             }
-            Texture undoableIcon = EditorGUIUtility.Load("MeshEditor/undo.png") as Texture;
-            Texture unundoableIcon = EditorGUIUtility.Load("MeshEditor/unundoable.png") as Texture;
-            if (GUILayout.Button(meshUndoList.Count == 0? unundoableIcon: undoableIcon)) {
+            Texture undoableIcon = Resources.LoadAssetAtPath("Assets/Editor/MeshEditor/MeshEditorUI/undo.png", typeof(Texture)) as Texture;
+            Texture unundoableIcon = Resources.LoadAssetAtPath("Assets/Editor/MeshEditor/MeshEditorUI/unundoable.png", typeof(Texture)) as Texture;
+            if (GUILayout.Button(meshUndoList.Count == 0 ? unundoableIcon: undoableIcon)) {
                 UndoMeshChanges();
             }
         }, "Tools");
