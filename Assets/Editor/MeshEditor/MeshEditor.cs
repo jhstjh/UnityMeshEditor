@@ -16,7 +16,7 @@ public class MeshEditor : EditorWindow {
     bool lmbHold = false;
     bool keepFaceTogether = false;
     bool editOnOriginalMesh = true;
-    //bool holdingHandle = false;
+    bool holdingHandle = false;
     Vector2 rmbMousePos;
     Vector2 lmbDownPos;
 
@@ -262,7 +262,6 @@ public class MeshEditor : EditorWindow {
             if (evt.button == 0 && !lmbHold) {
                 lmbDownPos = evt.mousePosition;
                 lmbHold = true;
-                //Debug.Log("LMB Down");
             }
         }
         else if (evt.type == EventType.MouseUp) {
@@ -763,6 +762,8 @@ public class MeshEditor : EditorWindow {
     }
 
     void MoveVertexGroup(List<List<int>> vertexGroupList) {
+        if (Event.current.type == EventType.used) return;
+
         Quaternion rot = new Quaternion();
 
         if (moveCoord == 0)
@@ -774,7 +775,7 @@ public class MeshEditor : EditorWindow {
 
         lastHandlePos = handlePos;
         handlePos = Handles.PositionHandle(handlePos, rot);
-        /*
+       
         Mesh oldMesh;
         oldMesh = mesh;
         oldMesh.vertices = mesh.vertices;
@@ -783,8 +784,8 @@ public class MeshEditor : EditorWindow {
         oldMesh.triangles = mesh.triangles;
         oldMesh.tangents = mesh.tangents;
 
-        bool hasUsed = Event.current.type == EventType.used;
-        */
+        //bool hasUsed = Event.current.type == EventType.used;
+        //Debug.Log(hasUsed);
         HashSet<int> modifiedIndex = new HashSet<int>();
         if (lastHandlePos != handlePos) {
             
@@ -807,18 +808,18 @@ public class MeshEditor : EditorWindow {
             }
             mesh.vertices = vertices;
             UpdateMeshCollider();
-        }
-        /*
-        if (!hasUsed && Event.current.type == EventType.used && holdingHandle == false) {
+        } 
+        
+        if (/*Event.current.isMouse && Event.current.button == 0 && !hasUsed && */Event.current.type == EventType.used && holdingHandle == false) {
             Debug.Log("oooo");
             holdingHandle = true;
             CacheUndoMeshBackup(oldMesh);
         }
-        else if (Event.current.isMouse && Event.current.type != EventType.used && holdingHandle == true) {
+        else if (Event.current.isMouse && Event.current.button == 0 && Event.current.type != EventType.used && holdingHandle == true) {
             Debug.Log("xxxx");
             holdingHandle = false;
         }
-        */
+        
     }
 
     void RotateVertexGroup(List<List<int>> vertexGroupList) {
@@ -1026,8 +1027,8 @@ public class MeshEditor : EditorWindow {
         else if (rotElement) {
             GUILayout.Window(4, new Rect(80, 80, 50, 50), (subid) => {
                 GUILayout.Label("Rotate Axis:");
-                string[] content = { "Local", "World", "Average Normal" };
-                rotCoord = GUILayout.SelectionGrid(rotCoord, content, 3, "toggle");
+                string[] content = { "Local" };
+                rotCoord = GUILayout.SelectionGrid(rotCoord, content, 1, "toggle");
             }, "Rotate Tool");
         }
         else if (scaleElement) {
@@ -1190,7 +1191,8 @@ public class MeshEditor : EditorWindow {
     }
 
     void CacheUndoMeshBackup(Mesh oldMesh) {
-        undoMeshBackup = oldMesh;
+        Debug.Log("Saved Old Mesh");
+        undoMeshBackup = new Mesh();
         undoMeshBackup.vertices = oldMesh.vertices;
         undoMeshBackup.normals = oldMesh.normals;
         undoMeshBackup.uv = oldMesh.uv;
@@ -1200,13 +1202,14 @@ public class MeshEditor : EditorWindow {
 
     void UndoMeshChanges() {
         if (undoMeshBackup == null) return;
-        mesh = undoMeshBackup;
+        //mesh = new Mesh();
         mesh.vertices = undoMeshBackup.vertices;
         mesh.normals = undoMeshBackup.normals;
         mesh.uv = undoMeshBackup.uv;
         mesh.triangles = undoMeshBackup.triangles;
         mesh.tangents = undoMeshBackup.tangents;
         UpdateMeshCollider();
+        Debug.Log("Undo");
     }
 
     void ChangeMaterial() {
