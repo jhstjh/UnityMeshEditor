@@ -10,3 +10,16 @@ D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.xml
 D:\Documents\Cg\obj\Debug\UnityVS.Cg.CSharp.Editor.csprojResolveAssemblyReference.cache
 D:\Documents\Cg\obj\Debug\Assembly-CSharp-Editor.dll
 D:\Documents\Cg\obj\Debug\Assembly-CSharp-Editor.pdb
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.Android.Extensions.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.BB10.Extensions.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.Graphs.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.iOS.Extensions.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.Metro.Extensions.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.WP8.Extensions.dll
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\Assembly-CSharp.pdb
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.Graphs.xml
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.iOS.Extensions.xml
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.WP8.Extensions.xml
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.Metro.Extensions.xml
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.BB10.Extensions.xml
+D:\Documents\Cg\Temp\UnityVS_bin\Debug\UnityEditor.Android.Extensions.xml
