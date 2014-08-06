@@ -17,6 +17,7 @@ public class MeshEditor : EditorWindow {
     bool keepFaceTogether = false;
     bool editOnOriginalMesh = false;
     bool holdingHandle = false;
+    string materialPath = "Assets";
     Vector2 rmbMousePos;
     Vector2 lmbDownPos;
 
@@ -85,7 +86,20 @@ public class MeshEditor : EditorWindow {
             GUILayout.Label("Change material for selected faces");
             createNewMaterial = GUILayout.Toggle(createNewMaterial, "Create New Material");
             if (createNewMaterial) {
-
+                GUILayout.BeginHorizontal();
+                GUILayout.Label("Save New Material To: ");
+                materialPath = EditorGUILayout.TextField(materialPath);
+                if (GUILayout.Button("Browse")) {
+                    string returnPath = EditorUtility.SaveFolderPanel("Save Material To...", materialPath, "");
+                    if (returnPath.Length != 0) {
+                        int startPathIdx = returnPath.IndexOf("Assets");
+                        if (startPathIdx != -1)
+                            materialPath = returnPath.Substring(startPathIdx);
+                        else
+                            Debug.LogError("This is not a valid path!");
+                    }
+                }
+                GUILayout.EndHorizontal();
             }
             else {
                 assignedMat = EditorGUILayout.ObjectField("Material to use", assignedMat, typeof(Material), true) as Material;
@@ -215,6 +229,11 @@ public class MeshEditor : EditorWindow {
             ExitMeshEditMode();
             editMode = EditMode.Object;
         }
+        else if (Selection.activeGameObject != selObj) {
+            ExitMeshEditMode();
+            MeshEditMode();
+        }
+
         DrawRectSelection(evt);
         HandleFastSel(evt);
         if (rmbHold) {
@@ -944,8 +963,8 @@ public class MeshEditor : EditorWindow {
         GL.LoadOrtho();
         GL.Begin(GL.LINES);
         GL.Color(Color.white);
-        GL.Vertex(new Vector3(rmbMousePos.x / Screen.width, 1 - rmbMousePos.y / Screen.height, 0));
-        GL.Vertex(new Vector3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0));
+        GL.Vertex(new Vector3(rmbMousePos.x / Screen.width, 1 - (rmbMousePos.y + 25) / Screen.height, 0));
+        GL.Vertex(new Vector3(evt.mousePosition.x / Screen.width, 1 - (evt.mousePosition.y + 25) / Screen.height, 0));
         GL.End();
         GL.PopMatrix();
 
@@ -1103,7 +1122,7 @@ public class MeshEditor : EditorWindow {
             return;
         }
 
-        //CacheUndoMeshBackup(mesh);
+        CacheUndoMeshBackup(mesh);
         int subMeshIdx = 0;
         foreach (List<List<int>> realTriangleArray in realTriangleArrayWithSubMeshSeparated)
         {
@@ -1149,7 +1168,12 @@ public class MeshEditor : EditorWindow {
         }
         else {
             Material newMat = new Material(Shader.Find("Diffuse"));
-            AssetDatabase.CreateAsset(newMat, "Assets/Material/newMat_" + mesh.subMeshCount + ".mat");
+            try {
+                AssetDatabase.CreateAsset(newMat, materialPath + "/newMat_" + mesh.subMeshCount + ".mat");
+            }
+            catch (Exception e) {
+
+            }
             AssetDatabase.Refresh();
             newMat.color = Color.blue;
 
@@ -1161,10 +1185,8 @@ public class MeshEditor : EditorWindow {
         selObj.GetComponent<MeshFilter>().sharedMesh = mesh;
         selObj.renderer.sharedMaterials = materials.ToArray();
 
-        if (hasMeshCollider)
-            selObj.GetComponent<MeshCollider>().sharedMesh = mesh;
-        else
-            DestroyImmediate(selObj.GetComponent<MeshCollider>());
+        selObj.GetComponent<MeshCollider>().sharedMesh = mesh;
+
         realTriangleArrayWithSubMeshSeparated.Clear();
         selectedFaces.Clear();
         selectedFacesIndex.Clear();
