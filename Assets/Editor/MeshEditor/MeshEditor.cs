@@ -1103,6 +1103,7 @@ public class MeshEditor : EditorWindow {
         mesh = (Mesh)Instantiate(undoMeshBackup);
         mesh.name = undoMeshBackup.name;
         selObj.GetComponent<MeshFilter>().sharedMesh = mesh;
+        selObj.GetComponent<MeshRenderer>().sharedMaterials = selObj.GetComponent<MeshRenderer>().sharedMaterials.Take(undoMeshBackup.subMeshCount).ToArray();
         UpdateMeshCollider();
 
         handleRot = selObj.transform.rotation;
@@ -1168,12 +1169,7 @@ public class MeshEditor : EditorWindow {
         }
         else {
             Material newMat = new Material(Shader.Find("Diffuse"));
-            try {
-                AssetDatabase.CreateAsset(newMat, materialPath + "/newMat_" + mesh.subMeshCount + ".mat");
-            }
-            catch (Exception e) {
-
-            }
+            AssetDatabase.CreateAsset(newMat, materialPath + "/newMat_" + mesh.subMeshCount + ".mat");
             AssetDatabase.Refresh();
             newMat.color = Color.blue;
 
