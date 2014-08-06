@@ -14,10 +14,11 @@ public class MeshEditor : EditorWindow {
     bool hasMeshCollider = false;
     bool rmbHold = false;
     bool lmbHold = false;
-    bool keepFaceTogether = false;
+    bool keepFaceTogether = true;
     bool editOnOriginalMesh = false;
     bool holdingHandle = false;
     string materialPath = "Assets";
+    string meshPath = "Assets/newMesh";
     Vector2 rmbMousePos;
     Vector2 lmbDownPos;
 
@@ -58,10 +59,10 @@ public class MeshEditor : EditorWindow {
         Face    = 3
     }
 
-    [MenuItem("Mesh Editor/Mesh Editor Panel")]
+    [MenuItem("Window/Mesh Editor Panel", false, 0)]
     public static void ShowWindow() {
         EditorWindow window = EditorWindow.GetWindow(typeof(MeshEditor));
-        window.minSize = new Vector2(350, 350);
+        window.minSize = new Vector2(350, 450);
     }
 
     void OnGUI() {
@@ -72,17 +73,41 @@ public class MeshEditor : EditorWindow {
             if (newMode != editMode) {
                 if (editMode == EditMode.Object)
                     MeshEditMode();
+                if (newMode == EditMode.Object)
+                    ExitMeshEditMode();
                 editMode = newMode;
             }
             editOnOriginalMesh = GUILayout.Toggle(editOnOriginalMesh, "Edit On Original Mesh");
             GUILayout.Label("Notice: Mesh Editor will NOT modify the source file (e.g. \n" +
-                            "*.fbx) but just the imported mesh. Reimport the asset will \n" +
-                            "revert all changes to the mesh.\n"+
+                            "*.fbx) but just the imported mesh.\n"+
                             "Select \"Edit On Original Mesh\" will affect all instances\n" +
-                            "in project, otherwise a new mesh copy will be create.", GUILayout.Width(400));
+                            "in scene, otherwise a new mesh copy will be created. You \n" +
+                            "have to save it before you can use it for a prefab.", GUILayout.Width(400));
+            GUILayout.Space(10);
+            GUILayout.BeginHorizontal();
+            GUILayout.Label("Save Modified Mesh As: ");
+            meshPath = EditorGUILayout.TextField(meshPath);
+            if (GUILayout.Button("Browse")) {
+                string returnPath = EditorUtility.SaveFilePanelInProject("Save Mesh To...", mesh.name, "", "");
+                if (returnPath.Length != 0) {
+                    int startPathIdx = returnPath.IndexOf("Assets");
+                    if (startPathIdx != -1)
+                        meshPath = returnPath.Substring(startPathIdx);
+                    else
+                        Debug.LogError("This is not a valid path!");
+                }
+            }
+            GUILayout.EndHorizontal();
+            if (GUILayout.Button("Save Mesh", GUILayout.ExpandWidth(false))) {
+                if (mesh != null) {
+                    AssetDatabase.CreateAsset(mesh, meshPath);
+                    AssetDatabase.Refresh();
+                }
+            }
             GUILayout.Space(20);
 
             EditorGUILayout.LabelField("Face Editing Tools", EditorStyles.boldLabel);
+            GUI.enabled = selectedFaces.Count > 0;
             GUILayout.Label("Change material for selected faces");
             createNewMaterial = GUILayout.Toggle(createNewMaterial, "Create New Material");
             if (createNewMaterial) {
@@ -114,30 +139,41 @@ public class MeshEditor : EditorWindow {
                 Extrude();
             }
             GUILayout.Space(10);
-            /*
-            if (GUILayout.Button("Recalculate Normals")) {
+            GUILayout.Label("Harden selected face edge. \nThis will extract the faces from adjacent faces.\n Helpful for weird normal looking after extrusion.");
+            if (GUILayout.Button("Harden face edge", GUILayout.ExpandWidth(false))) {
                 if (mesh) {
-                    mesh.RecalculateNormals();
+                    HardenFaceEdge();
                 }
             }
-            */
+            GUILayout.Space(10);
+         
         }
         GUILayout.EndVertical();
+        GUI.enabled = true;
     }
 
     void MeshEditMode() {
         ExitMeshEditMode();
         selObj = Selection.activeGameObject;
+        /*
+        if (PrefabUtility.GetPrefabType(selObj) != PrefabType.None) {
+            return;
+        }
+        */
         if (editOnOriginalMesh)
             mesh = selObj.GetComponent<MeshFilter>().sharedMesh;
         else {
-            mesh = new Mesh();
+            //mesh = new Mesh();
             mesh = (Mesh)Instantiate(selObj.GetComponent<MeshFilter>().sharedMesh);
+            mesh.name = selObj.GetComponent<MeshFilter>().sharedMesh.name;
+            DestroyImmediate(selObj.GetComponent<MeshFilter>().sharedMesh);
             selObj.GetComponent<MeshFilter>().sharedMesh = mesh;
         }
 
         if (selObj.GetComponent<MeshCollider>() == null) {
             MeshCollider mc = selObj.AddComponent<MeshCollider>();
+            if (mc == null)
+                return;
             mc.sharedMesh = selObj.GetComponent<MeshFilter>().sharedMesh;
             hasMeshCollider = false;
         }
@@ -219,6 +255,7 @@ public class MeshEditor : EditorWindow {
         realTriangleArrayWithSubMeshSeparated.Clear();
         vertexMapping.Clear();
         selectedFacesIndex.Clear();
+        editMode = EditMode.Object;
     }
 
     void OnSceneGUI(SceneView scnView) {
@@ -229,7 +266,7 @@ public class MeshEditor : EditorWindow {
             ExitMeshEditMode();
             editMode = EditMode.Object;
         }
-        else if (Selection.activeGameObject != selObj) {
+        else if (Selection.activeGameObject != null && Selection.activeGameObject != selObj) {
             ExitMeshEditMode();
             MeshEditMode();
         }
@@ -294,6 +331,7 @@ public class MeshEditor : EditorWindow {
         else if (evt.type == EventType.MouseUp) {
             HandleRectSelection(evt);
         }
+        Repaint();
     }
 
     bool AddNewFace(int vert1, int vert2, ref List<int> triangleList, List<int> selectedFace, int startNewIndex) {
@@ -354,7 +392,7 @@ public class MeshEditor : EditorWindow {
         List<List<int>> extrudedFaces = new List<List<int>>();
         List<int> extrudedFacesIndex = new List<int>();
 
-        CacheUndoMeshBackup(mesh);
+        CacheUndoMeshBackup();
         edgeOccurance.Clear();
         foreach (List<int> selectedFace in selectedFaces) {
             for (int i = 0; i < 3; i++) {
@@ -379,6 +417,7 @@ public class MeshEditor : EditorWindow {
                 if (!vertexMapping.ContainsKey(vertIdx) || !keepFaceTogether) {
                     vertexList.Add(vertexList[vertIdx]);
                     normalList.Add(GetFaceNormal(selectedFace));
+                    //normalList.Add(normalList[vertIdx]);
                     uvList.Add(uvList[vertIdx]);
                     triangleList.Add(vertexList.Count - 1);
                     if (keepFaceTogether)
@@ -438,6 +477,40 @@ public class MeshEditor : EditorWindow {
         moveElement = true;
         rotElement = false;
         scaleElement = false;
+    }
+
+    void HardenFaceEdge() {
+        CacheUndoMeshBackup();
+        List<Vector3> vertexList = new List<Vector3>(mesh.vertices);
+        List<Vector2> uvList = new List<Vector2>(mesh.uv);
+        List<Vector3> normalList = new List<Vector3>(mesh.normals);
+        List<int> triangleList = new List<int>(mesh.triangles);
+
+        foreach (List<int> selectedFace in selectedFaces) {
+            foreach (int vertex in selectedFace) {
+                vertexList.Add(vertexList[vertex]);
+                uvList.Add(uvList[vertex]);
+                //normalList.Add(uvList[vertex]);
+                normalList.Add(GetFaceNormal(selectedFace));
+                triangleList.Add(vertexList.Count - 1);
+
+            }
+        }
+
+        for (int i = 0; i < selectedFacesIndex.Count; i++) {
+            triangleList.RemoveRange(3 * selectedFacesIndex[i], 3);
+            for (int j = i; j < selectedFacesIndex.Count; j++) {
+                if (selectedFacesIndex[j] > selectedFacesIndex[i])
+                    selectedFacesIndex[j]--;
+            }
+        }
+
+        mesh.vertices = vertexList.ToArray();
+        mesh.uv = uvList.ToArray();
+        mesh.normals = normalList.ToArray();
+        mesh.triangles = triangleList.ToArray();
+
+        ExitMeshEditMode();
     }
 
     void HandleFaceSelection(Event evt) {
@@ -786,7 +859,7 @@ public class MeshEditor : EditorWindow {
         
         if (Event.current.type == EventType.used && holdingHandle == false) {
             holdingHandle = true;
-            CacheUndoMeshBackup(mesh);
+            CacheUndoMeshBackup();
         }
         else if (Event.current.isMouse && Event.current.button == 0 && Event.current.type != EventType.used && holdingHandle == true) {
             holdingHandle = false;
@@ -831,7 +904,7 @@ public class MeshEditor : EditorWindow {
         }
         if (Event.current.type == EventType.used && holdingHandle == false) {
             holdingHandle = true;
-            CacheUndoMeshBackup(mesh);
+            CacheUndoMeshBackup();
         }
         else if (Event.current.isMouse && Event.current.button == 0 && Event.current.type != EventType.used && holdingHandle == true) {
             holdingHandle = false;
@@ -878,7 +951,7 @@ public class MeshEditor : EditorWindow {
         }
         if (Event.current.type == EventType.used && holdingHandle == false) {
             holdingHandle = true;
-            CacheUndoMeshBackup(mesh);
+            CacheUndoMeshBackup();
         }
         else if (Event.current.isMouse && Event.current.button == 0 && Event.current.type != EventType.used && holdingHandle == true) {
             holdingHandle = false;
@@ -1086,11 +1159,10 @@ public class MeshEditor : EditorWindow {
         selObj.GetComponent<MeshCollider>().sharedMesh = mesh;
     }
 
-    void CacheUndoMeshBackup(Mesh oldMesh) {
-        //Debug.Log("Saved Old Mesh");
-        Mesh meshBackup = new Mesh();
-        meshBackup = (Mesh)Instantiate(oldMesh);
-        meshBackup.name = oldMesh.name;
+    void CacheUndoMeshBackup() {
+        Mesh meshBackup/* = new Mesh()*/;
+        meshBackup = (Mesh)Instantiate(mesh);
+        meshBackup.name = mesh.name;
         if (meshUndoList.Count >= 10)
             meshUndoList.RemoveAt(0);
         meshUndoList.Add(meshBackup);
@@ -1114,6 +1186,7 @@ public class MeshEditor : EditorWindow {
         selectedVertices.Clear();
         selectedEdges.Clear();
         UpdateMeshCollider();
+        DestroyImmediate(undoMeshBackup);
         Debug.Log("Undo");
     }
 
@@ -1123,7 +1196,7 @@ public class MeshEditor : EditorWindow {
             return;
         }
 
-        CacheUndoMeshBackup(mesh);
+        CacheUndoMeshBackup();
         int subMeshIdx = 0;
         foreach (List<List<int>> realTriangleArray in realTriangleArrayWithSubMeshSeparated)
         {
@@ -1192,6 +1265,13 @@ public class MeshEditor : EditorWindow {
         //Selection.objects = new UnityEngine.Object[0];
     }
 
+    void ClearUndoList() {
+        for (int i = 0; i < meshUndoList.Count; i++) {
+            DestroyImmediate(meshUndoList[i]);
+        }
+        meshUndoList.Clear();
+    }
+
     void OnEnable() {
         SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
         SceneView.onSceneGUIDelegate += this.OnSceneGUI;
@@ -1199,6 +1279,7 @@ public class MeshEditor : EditorWindow {
 
     void OnDestroy() {
         ExitMeshEditMode();
+        ClearUndoList();
         SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
     }
 }
