@@ -159,7 +159,8 @@ namespace ME {
             ExitMeshEditMode();
             CheckMeshReferenceCount();
             // in case scale tool is selected and breaks GL function
-            Tools.current = Tool.Move;
+            Tools.current = Tool.None;
+			//Tools.hidden = true;
             selObj = Selection.activeGameObject;
             if (selObj == null) {
                 Debug.LogError("No Object Selected!");
@@ -548,6 +549,7 @@ namespace ME {
             RaycastHit hitInfo;
             if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
                 if (evt.type == EventType.repaint) {
+                    /*
                     GL.PushMatrix();
                     GL.Begin(GL.TRIANGLES);
                     GL.Color(new Color(1, 0, 0, 0.5f));
@@ -556,6 +558,12 @@ namespace ME {
                     GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]));
                     GL.End();
                     GL.PopMatrix();
+                    */
+                    Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]),
+                                                                         selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]),
+                                                                         selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]),
+                                                                         selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]])},
+                                                                         new Color(1, 0, 0, 0.5f), new Color(0, 0, 0, 1));
                 }
 
 
@@ -620,12 +628,18 @@ namespace ME {
                         highLightedEdge.Add(Mathf.Min(mesh.triangles[3 * hitInfo.triangleIndex + 1], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
                         highLightedEdge.Add(Mathf.Max(mesh.triangles[3 * hitInfo.triangleIndex + 1], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
                     }
-
+                    /*
                     GL.Begin(GL.LINES);
                     GL.Color(Color.red);
                     GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]));
                     GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]]));
                     GL.End();
+                    */
+                    Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]), 
+                                                                         selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]), 
+                                                                         selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]]), 
+                                                                         selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]])},
+                                                                         Color.red, Color.red);
                 }
 
                 if (evt.type == EventType.MouseDown && highLightedEdge.Count != 0) {
@@ -702,12 +716,19 @@ namespace ME {
 
         void HighlightSelectedFaces() {
             foreach (List<int> selectedFace in selectedFaces) {
+				/*
                 GL.Begin(GL.TRIANGLES);
                 GL.Color(new Color(1, 1, 0, 0.5f));
                 GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[0]]));
                 GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[1]]));
                 GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]));
                 GL.End();
+                */
+				Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[selectedFace[0]]), 
+                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedFace[1]]), 
+                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]), 
+                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]])}, 
+                                                                     new Color(1, 1, 0, 0.5f), new Color(0,0,0,1));
             }
         }
 
@@ -836,11 +857,19 @@ namespace ME {
 
         void HighlightSelectedEdges() {
             foreach (List<int> selectedEdge in selectedEdges) {
+                /*
                 GL.Begin(GL.LINES);
                 GL.Color(new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f));
                 GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]));
                 GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]]));
                 GL.End();
+                */
+                Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]), 
+                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]), 
+                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]]), 
+                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]])},
+                                                                     new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f), 
+                                                                     new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f));
             }
         }
 
@@ -962,7 +991,7 @@ namespace ME {
                 rot = Quaternion.LookRotation(GetFaceNormal(vertexGroupList[0]));
 
             lastHandleScale = handleScale;
-            handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, /*HandleUtility.GetHandleSize(handlePos)*/20.0f / 3);
+            handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, HandleUtility.GetHandleSize(handlePos));
             Vector3[] vertices = mesh.vertices;
             bool updated = false;
 
@@ -1049,6 +1078,7 @@ namespace ME {
         void DrawRectSelection(Event evt) {
             // draw selection rect
             if (lmbHold) {
+                /*
                 GL.PushMatrix();
                 GL.LoadOrtho();
                 GL.Begin(GL.LINES);
@@ -1063,10 +1093,16 @@ namespace ME {
                 GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
                 GL.End();
                 GL.PopMatrix();
+                */
+
+                Handles.BeginGUI();
+                GUI.Box(new Rect(Mathf.Min(lmbDownPos.x, evt.mousePosition.x), Mathf.Min(lmbDownPos.y, evt.mousePosition.y), Mathf.Abs(evt.mousePosition.x - lmbDownPos.x), Mathf.Abs(evt.mousePosition.y - lmbDownPos.y)), "");
+                Handles.EndGUI();
             }
         }
 
         void DrawFastSel(Event evt) {
+            /*
             GL.PushMatrix();
             GL.LoadOrtho();
             GL.Begin(GL.LINES);
@@ -1075,6 +1111,16 @@ namespace ME {
             GL.Vertex(new Vector3(evt.mousePosition.x / Screen.width, 1 - (evt.mousePosition.y + 25) / Screen.height, 0));
             GL.End();
             GL.PopMatrix();
+            */
+
+            if (Camera.current == null) return;
+            
+            //Matrix4x4 = 
+
+            Vector3 worldRmbPos = Camera.current.ScreenToWorldPoint(new Vector3(rmbMousePos.x, Screen.height - rmbMousePos.y - 36, Camera.current.nearClipPlane));
+            Vector3 worldEvtPos = Camera.current.ScreenToWorldPoint(new Vector3(evt.mousePosition.x, Screen.height - evt.mousePosition.y - 36, Camera.current.nearClipPlane));
+
+            Handles.DrawLine(worldRmbPos, worldEvtPos);
 
             HandleUtility.Repaint();
 
@@ -1326,6 +1372,7 @@ namespace ME {
         void OnDestroy() {
             ExitMeshEditMode();
             SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
+			Tools.current = Tool.Move;
         }
     }
 }
