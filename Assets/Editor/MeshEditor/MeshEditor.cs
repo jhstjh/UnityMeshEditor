@@ -1,8 +1,13 @@
+/*  Mesh Editor for Unity
+ *  Version 1.0
+ *  Created By Jihui Shentu
+ *  2014 All Rights Reserved
+ */
+
 using UnityEngine;
 using UnityEditor;
 using System.Collections;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using System.Linq;
 using System;
 
@@ -47,6 +52,7 @@ public class MeshEditor : EditorWindow {
     List<CapsuleCollider> cColliders = new List<CapsuleCollider>();
     Dictionary<int, int> vertexMapping = new Dictionary<int, int>();
     Dictionary<HashSet<int>, int> edgeOccurance = new Dictionary<HashSet<int>, int>(new HashSetEqualityComparer<int>());
+    Dictionary<Mesh, int> meshReferenceCount = new Dictionary<Mesh, int>();
     Material assignedMat = null;
     List<Mesh> meshUndoList = new List<Mesh>(10);
 
@@ -108,6 +114,22 @@ public class MeshEditor : EditorWindow {
 
             EditorGUILayout.LabelField("Face Editing Tools", EditorStyles.boldLabel);
             GUI.enabled = selectedFaces.Count > 0;
+            
+            GUILayout.Label("Extrude Selected Faces");
+            keepFaceTogether = GUILayout.Toggle(keepFaceTogether, "Keep face together");
+            if (GUILayout.Button("Extrude", GUILayout.ExpandWidth(false))) {
+                Extrude();
+            }
+            GUILayout.Space(10);
+
+            GUILayout.Label("Harden selected face edge. \nThis will extract the faces from adjacent faces.\nHelpful for fixing weird normals after extrusion.");
+            if (GUILayout.Button("Harden face edge", GUILayout.ExpandWidth(false))) {
+                if (mesh) {
+                    HardenFaceEdge();
+                }
+            }
+            GUILayout.Space(10);
+
             GUILayout.Label("Change material for selected faces");
             createNewMaterial = GUILayout.Toggle(createNewMaterial, "Create New Material");
             if (createNewMaterial) {
@@ -133,20 +155,6 @@ public class MeshEditor : EditorWindow {
                 ChangeMaterial();
             }
             GUILayout.Space(10);
-            GUILayout.Label("Extrude Selected Faces");
-            keepFaceTogether = GUILayout.Toggle(keepFaceTogether, "Keep face together");
-            if (GUILayout.Button("Extrude", GUILayout.ExpandWidth(false))) {
-                Extrude();
-            }
-            GUILayout.Space(10);
-            GUILayout.Label("Harden selected face edge. \nThis will extract the faces from adjacent faces.\n Helpful for weird normal looking after extrusion.");
-            if (GUILayout.Button("Harden face edge", GUILayout.ExpandWidth(false))) {
-                if (mesh) {
-                    HardenFaceEdge();
-                }
-            }
-            GUILayout.Space(10);
-         
         }
         GUILayout.EndVertical();
         GUI.enabled = true;
@@ -154,26 +162,42 @@ public class MeshEditor : EditorWindow {
 
     void MeshEditMode() {
         ExitMeshEditMode();
+        CheckMeshReferenceCount();
         selObj = Selection.activeGameObject;
-        /*
-        if (PrefabUtility.GetPrefabType(selObj) != PrefabType.None) {
+
+        if (selObj.GetComponent<MeshFilter>() == null) {
+            Debug.LogError("Selected object has no mesh filter attached! Mesh Editor cannot get the mesh copy!");
             return;
         }
-        */
+        
         if (editOnOriginalMesh)
             mesh = selObj.GetComponent<MeshFilter>().sharedMesh;
         else {
-            //mesh = new Mesh();
             mesh = (Mesh)Instantiate(selObj.GetComponent<MeshFilter>().sharedMesh);
             mesh.name = selObj.GetComponent<MeshFilter>().sharedMesh.name;
-            DestroyImmediate(selObj.GetComponent<MeshFilter>().sharedMesh);
+            try {
+                if (meshReferenceCount[selObj.GetComponent<MeshFilter>().sharedMesh] == 1) {
+                    DestroyImmediate(selObj.GetComponent<MeshFilter>().sharedMesh);
+                    meshReferenceCount.Remove(selObj.GetComponent<MeshFilter>().sharedMesh);
+                }
+                else
+                    meshReferenceCount[selObj.GetComponent<MeshFilter>().sharedMesh]--;
+            }
+            catch (Exception e){
+                //Debug.Log("");
+            }
             selObj.GetComponent<MeshFilter>().sharedMesh = mesh;
         }
 
         if (selObj.GetComponent<MeshCollider>() == null) {
             MeshCollider mc = selObj.AddComponent<MeshCollider>();
-            if (mc == null)
+            if (mc == null) {
+                Debug.LogError("Please select gameObject in scene. Mesh Editor does not support editing directly on prefabs.");
+                if (!editOnOriginalMesh)
+                    DestroyImmediate(mesh);
+                ClearUndoList();
                 return;
+            }
             mc.sharedMesh = selObj.GetComponent<MeshFilter>().sharedMesh;
             hasMeshCollider = false;
         }
@@ -220,6 +244,7 @@ public class MeshEditor : EditorWindow {
     }
 
     void ExitMeshEditMode() {
+        ClearUndoList();
         if (!selObj) return;
 
         if (hasMeshCollider) {
@@ -255,6 +280,7 @@ public class MeshEditor : EditorWindow {
         realTriangleArrayWithSubMeshSeparated.Clear();
         vertexMapping.Clear();
         selectedFacesIndex.Clear();
+        meshReferenceCount.Clear();
         editMode = EditMode.Object;
     }
 
@@ -497,12 +523,13 @@ public class MeshEditor : EditorWindow {
             }
         }
 
-        for (int i = 0; i < selectedFacesIndex.Count; i++) {
-            triangleList.RemoveRange(3 * selectedFacesIndex[i], 3);
-            for (int j = i; j < selectedFacesIndex.Count; j++) {
-                if (selectedFacesIndex[j] > selectedFacesIndex[i])
+        while(selectedFacesIndex.Count != 0) {
+            for (int j = 1; j < selectedFacesIndex.Count; j++) {
+                if (selectedFacesIndex[j] > selectedFacesIndex[0])
                     selectedFacesIndex[j]--;
             }
+            triangleList.RemoveRange(3 * selectedFacesIndex[0], 3);
+            selectedFacesIndex.RemoveAt(0);
         }
 
         mesh.vertices = vertexList.ToArray();
@@ -1272,6 +1299,18 @@ public class MeshEditor : EditorWindow {
         meshUndoList.Clear();
     }
 
+    void CheckMeshReferenceCount() {
+        MeshFilter[] allMeshFilter = FindObjectsOfType<MeshFilter>();
+
+        foreach (MeshFilter meshFilter in allMeshFilter) {
+            if (meshReferenceCount.ContainsKey(meshFilter.sharedMesh)) {
+                meshReferenceCount[meshFilter.sharedMesh]++;
+            }
+            else
+                meshReferenceCount.Add(meshFilter.sharedMesh, 1);
+        }
+    }
+
     void OnEnable() {
         SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
         SceneView.onSceneGUIDelegate += this.OnSceneGUI;
@@ -1279,7 +1318,6 @@ public class MeshEditor : EditorWindow {
 
     void OnDestroy() {
         ExitMeshEditMode();
-        ClearUndoList();
         SceneView.onSceneGUIDelegate -= this.OnSceneGUI;
     }
 }
