@@ -1328,6 +1328,9 @@ namespace ME {
                 selectedFacesIndex.Clear();
                 selectedVertices.Clear();
                 selectedEdges.Clear();
+                moveElement = false;
+                scaleElement = false;
+                rotElement = false;
             }
             else {
                 if (selectedFaces.Count != 0)
