@@ -23,6 +23,7 @@ namespace ME {
         bool keepFaceTogether = true;
         bool editOnOriginalMesh = false;
         bool holdingHandle = false;
+        bool useGLDraw = false;
         string materialPath = "Assets";
         string meshPath = "Assets/newMesh";
         Vector2 rmbMousePos;
@@ -70,6 +71,8 @@ namespace ME {
             GUILayout.BeginVertical();
             {
                 EditorGUILayout.LabelField("Mesh Editor 1.0", EditorStyles.boldLabel);
+                //useGLDraw = GUILayout.Toggle(useGLDraw, "Use GL for highlighting");
+                GUILayout.Space(10);
                 EditMode newMode = (EditMode)EditorGUILayout.EnumPopup("Edit Mode", editMode);
                 if (newMode != editMode) {
                     if (editMode == EditMode.Object)
@@ -507,6 +510,8 @@ namespace ME {
             moveElement = true;
             rotElement = false;
             scaleElement = false;
+
+            moveCoord = 3;
         }
 
         void HardenFaceEdge() {
@@ -549,21 +554,23 @@ namespace ME {
             RaycastHit hitInfo;
             if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
                 if (evt.type == EventType.repaint) {
-                    /*
-                    GL.PushMatrix();
-                    GL.Begin(GL.TRIANGLES);
-                    GL.Color(new Color(1, 0, 0, 0.5f));
-                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]));
-                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]));
-                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]));
-                    GL.End();
-                    GL.PopMatrix();
-                    */
-                    Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]),
-                                                                         selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]),
-                                                                         selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]),
-                                                                         selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]])},
-                                                                         new Color(1, 0, 0, 0.5f), new Color(0, 0, 0, 1));
+                    if (useGLDraw) {
+                        GL.PushMatrix();
+                        GL.Begin(GL.TRIANGLES);
+                        GL.Color(new Color(1, 0, 0, 0.5f));
+                        GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]));
+                        GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]));
+                        GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]));
+                        GL.End();
+                        GL.PopMatrix();
+                    }
+                    else {
+                        Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]),
+                                                                             selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]),
+                                                                             selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]),
+                                                                             selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]])},
+                                                                             new Color(1, 0, 0, 0.5f), new Color(0, 0, 0, 1));
+                    }
                 }
 
 
@@ -628,18 +635,20 @@ namespace ME {
                         highLightedEdge.Add(Mathf.Min(mesh.triangles[3 * hitInfo.triangleIndex + 1], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
                         highLightedEdge.Add(Mathf.Max(mesh.triangles[3 * hitInfo.triangleIndex + 1], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
                     }
-                    /*
-                    GL.Begin(GL.LINES);
-                    GL.Color(Color.red);
-                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]));
-                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]]));
-                    GL.End();
-                    */
-                    Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]), 
-                                                                         selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]), 
-                                                                         selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]]), 
-                                                                         selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]])},
-                                                                         Color.red, Color.red);
+                    if (useGLDraw) {
+                        GL.Begin(GL.LINES);
+                        GL.Color(Color.red);
+                        GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]));
+                        GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]]));
+                        GL.End();
+                    }
+                    else {
+                        Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]), 
+                                                                             selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]), 
+                                                                             selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]]), 
+                                                                             selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]])},
+                                                                             Color.red, Color.red);
+                    }
                 }
 
                 if (evt.type == EventType.MouseDown && highLightedEdge.Count != 0) {
@@ -716,19 +725,21 @@ namespace ME {
 
         void HighlightSelectedFaces() {
             foreach (List<int> selectedFace in selectedFaces) {
-				/*
-                GL.Begin(GL.TRIANGLES);
-                GL.Color(new Color(1, 1, 0, 0.5f));
-                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[0]]));
-                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[1]]));
-                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]));
-                GL.End();
-                */
-				Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[selectedFace[0]]), 
-                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedFace[1]]), 
-                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]), 
-                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]])}, 
-                                                                     new Color(1, 1, 0, 0.5f), new Color(0,0,0,1));
+                if (useGLDraw) {
+                    GL.Begin(GL.TRIANGLES);
+                    GL.Color(new Color(1, 1, 0, 0.5f));
+                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[0]]));
+                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[1]]));
+                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]));
+                    GL.End();
+                }
+                else {
+                    Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[selectedFace[0]]), 
+                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedFace[1]]), 
+                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]), 
+                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]])},
+                                                                         new Color(1, 1, 0, 0.5f), new Color(0, 0, 0, 1));
+                }
             }
         }
 
@@ -857,19 +868,21 @@ namespace ME {
 
         void HighlightSelectedEdges() {
             foreach (List<int> selectedEdge in selectedEdges) {
-                /*
-                GL.Begin(GL.LINES);
-                GL.Color(new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f));
-                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]));
-                GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]]));
-                GL.End();
-                */
-                Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]), 
-                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]), 
-                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]]), 
-                                                                     selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]])},
-                                                                     new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f), 
-                                                                     new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f));
+                if (useGLDraw) {
+                    GL.Begin(GL.LINES);
+                    GL.Color(new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f));
+                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]));
+                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]]));
+                    GL.End();
+                }
+                else {
+                    Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]), 
+                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]), 
+                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]]), 
+                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]])},
+                                                                         new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f),
+                                                                         new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f));
+                }
             }
         }
 
@@ -884,7 +897,6 @@ namespace ME {
 
         void MoveVertexGroup(List<List<int>> vertexGroupList) {
             if (Event.current.type == EventType.used) return;
-
             Quaternion rot = new Quaternion();
 
             if (moveCoord == 0)
@@ -893,6 +905,11 @@ namespace ME {
                 rot = Quaternion.identity;
             else if (moveCoord == 2)
                 rot = Quaternion.LookRotation(GetFaceNormal(vertexGroupList[0]));
+            else if (moveCoord == 3) {
+                rot = Quaternion.LookRotation(GetFaceNormal(vertexGroupList[0]));
+                handlePos = GetFaceAveragePosition(vertexGroupList[0]);
+            }
+
 
             lastHandlePos = handlePos;
             handlePos = Handles.PositionHandle(handlePos, rot);
@@ -905,11 +922,13 @@ namespace ME {
                     foreach (int vertex in face) {
                         if (!modifiedIndex.Contains(vertex)) {
                             // per-face move
-                            //if (moveCoord == 2)
-                            //    vertices[vertex] += selObj.transform.InverseTransformDirection((handlePos - lastHandlePos).magnitude * GetFaceNormal(face));
-                            //else 
-                            Vector3 offset = selObj.transform.InverseTransformDirection(handlePos - lastHandlePos);
-                            // if it's parent has ununiformed scale then shit
+                            Vector3 offset = Vector3.zero;
+                            if (moveCoord == 3)
+                                offset = selObj.transform.InverseTransformDirection(Vector3.Dot((handlePos - lastHandlePos), GetFaceNormal(vertexGroupList[0])) * GetFaceNormal(face));
+                            else {
+                                offset = selObj.transform.InverseTransformDirection(handlePos - lastHandlePos);
+                                // if it's parent has ununiformed scale then shit
+                            }
                             offset.x /= selObj.transform.localScale.x;
                             offset.y /= selObj.transform.localScale.y;
                             offset.z /= selObj.transform.localScale.z;
@@ -1078,50 +1097,50 @@ namespace ME {
         void DrawRectSelection(Event evt) {
             // draw selection rect
             if (lmbHold) {
-                /*
-                GL.PushMatrix();
-                GL.LoadOrtho();
-                GL.Begin(GL.LINES);
-                GL.Color(Color.white);
-                GL.Vertex3(lmbDownPos.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
-                GL.Vertex3(lmbDownPos.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
-                GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
-                GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
-                GL.Vertex3(lmbDownPos.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
-                GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
-                GL.Vertex3(lmbDownPos.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
-                GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
-                GL.End();
-                GL.PopMatrix();
-                */
-
-                Handles.BeginGUI();
-                GUI.Box(new Rect(Mathf.Min(lmbDownPos.x, evt.mousePosition.x), Mathf.Min(lmbDownPos.y, evt.mousePosition.y), Mathf.Abs(evt.mousePosition.x - lmbDownPos.x), Mathf.Abs(evt.mousePosition.y - lmbDownPos.y)), "");
-                Handles.EndGUI();
+                if (useGLDraw) {
+                    GL.PushMatrix();
+                    GL.LoadOrtho();
+                    GL.Begin(GL.LINES);
+                    GL.Color(Color.white);
+                    GL.Vertex3(lmbDownPos.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+                    GL.Vertex3(lmbDownPos.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+                    GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+                    GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+                    GL.Vertex3(lmbDownPos.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+                    GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - lmbDownPos.y / Screen.height, 0);
+                    GL.Vertex3(lmbDownPos.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+                    GL.Vertex3(evt.mousePosition.x / Screen.width, 1 - evt.mousePosition.y / Screen.height, 0);
+                    GL.End();
+                    GL.PopMatrix();
+                }
+                else {
+                    Handles.BeginGUI();
+                    GUI.Box(new Rect(Mathf.Min(lmbDownPos.x, evt.mousePosition.x), Mathf.Min(lmbDownPos.y, evt.mousePosition.y), Mathf.Abs(evt.mousePosition.x - lmbDownPos.x), Mathf.Abs(evt.mousePosition.y - lmbDownPos.y)), "");
+                    Handles.EndGUI();
+                }
             }
         }
 
         void DrawFastSel(Event evt) {
-            /*
-            GL.PushMatrix();
-            GL.LoadOrtho();
-            GL.Begin(GL.LINES);
-            GL.Color(Color.white);
-            GL.Vertex(new Vector3(rmbMousePos.x / Screen.width, 1 - (rmbMousePos.y + 25) / Screen.height, 0));
-            GL.Vertex(new Vector3(evt.mousePosition.x / Screen.width, 1 - (evt.mousePosition.y + 25) / Screen.height, 0));
-            GL.End();
-            GL.PopMatrix();
-            */
+            if (useGLDraw) {
+                GL.PushMatrix();
+                GL.LoadOrtho();
+                GL.Begin(GL.LINES);
+                GL.Color(Color.white);
+                GL.Vertex(new Vector3(rmbMousePos.x / Screen.width, 1 - (rmbMousePos.y + 25) / Screen.height, 0));
+                GL.Vertex(new Vector3(evt.mousePosition.x / Screen.width, 1 - (evt.mousePosition.y + 25) / Screen.height, 0));
+                GL.End();
+                GL.PopMatrix();
+            }
+            else {
 
-            if (Camera.current == null) return;
-            
-            //Matrix4x4 = 
+                if (Camera.current == null) return;
 
-            Vector3 worldRmbPos = Camera.current.ScreenToWorldPoint(new Vector3(rmbMousePos.x, Screen.height - rmbMousePos.y - 36, Camera.current.nearClipPlane));
-            Vector3 worldEvtPos = Camera.current.ScreenToWorldPoint(new Vector3(evt.mousePosition.x, Screen.height - evt.mousePosition.y - 36, Camera.current.nearClipPlane));
+                Vector3 worldRmbPos = Camera.current.ScreenToWorldPoint(new Vector3(rmbMousePos.x, Screen.height - rmbMousePos.y - 36, Camera.current.nearClipPlane + 0.001f));
+                Vector3 worldEvtPos = Camera.current.ScreenToWorldPoint(new Vector3(evt.mousePosition.x, Screen.height - evt.mousePosition.y - 36, Camera.current.nearClipPlane + 0.001f));
 
-            Handles.DrawLine(worldRmbPos, worldEvtPos);
-
+                Handles.DrawLine(worldRmbPos, worldEvtPos);
+            }
             HandleUtility.Repaint();
 
             Handles.BeginGUI();
@@ -1188,6 +1207,7 @@ namespace ME {
                 moveElement = true;
                 rotElement = false;
                 scaleElement = false;
+                if (moveCoord == 3) moveCoord = 0;
                 e.Use();
             }
             else if (e.keyCode == KeyCode.E) {
@@ -1232,7 +1252,7 @@ namespace ME {
             Vector3 edge1 = selObj.transform.TransformPoint(mesh.vertices[face[1]]) - selObj.transform.TransformPoint(mesh.vertices[face[0]]);
             Vector3 edge2 = selObj.transform.TransformPoint(mesh.vertices[face[2]]) - selObj.transform.TransformPoint(mesh.vertices[face[1]]);
 
-            return Vector3.Cross(edge1, edge2).normalized;
+            return Vector3.Cross(edge1.normalized, edge2.normalized).normalized;
         }
 
         void UpdateMeshCollider() {
