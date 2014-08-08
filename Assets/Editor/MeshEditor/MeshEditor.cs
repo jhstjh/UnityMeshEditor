@@ -56,7 +56,7 @@ namespace ME {
         Dictionary<HashSet<int>, int> edgeOccurance = new Dictionary<HashSet<int>, int>(new HashSetEqualityComparer<int>());
         Dictionary<Mesh, int> meshReferenceCount = new Dictionary<Mesh, int>();
         Material assignedMat = null;
-        List<Mesh> meshUndoList = new List<Mesh>(10);
+        List<KeyValuePair<Mesh, EditType>> meshUndoList = new List<KeyValuePair<Mesh, EditType>>(10);
 
         EditMode editMode = EditMode.Object;
 
@@ -65,6 +65,35 @@ namespace ME {
             Vertex = 1,
             Edge = 2,
             Face = 3
+        }
+
+        enum EditType {
+            Move,
+            Rotate,
+            Scale,
+            Extrude,
+            Harden,
+            ChangeMat
+        }
+
+        class HashSetEqualityComparer<T> : IEqualityComparer<HashSet<T>> {
+            public int GetHashCode(HashSet<T> hashSet) {
+                if (hashSet == null)
+                    return 0;
+                int h = 0x14345843;//some arbitrary number
+                foreach (T elem in hashSet) {
+                    h = h + hashSet.Comparer.GetHashCode(elem);
+                }
+                return h;
+            }
+
+            public bool Equals(HashSet<T> set1, HashSet<T> set2) {
+                if (set1 == set2)
+                    return true;
+                if (set1 == null || set2 == null)
+                    return false;
+                return set1.SetEquals(set2);
+            }
         }
 
         void OnGUI() {
@@ -296,7 +325,7 @@ namespace ME {
             DrawToolBar();
 
             if (Event.current.type == EventType.ValidateCommand) {
-                Debug.Log(Event.current.commandName);
+                //Debug.Log(Event.current.commandName);
                 if (Event.current.commandName == "UndoRedoPerformed") {
                     Event.current.Use();
                     UndoMeshChanges();
@@ -403,26 +432,6 @@ namespace ME {
             }
         }
 
-        // check if this really works!!!
-        class HashSetEqualityComparer<T> : IEqualityComparer<HashSet<T>> {
-            public int GetHashCode(HashSet<T> hashSet) {
-                if (hashSet == null)
-                    return 0;
-                int h = 0x14345843;//some arbitrary number
-                foreach (T elem in hashSet) {
-                    h = h + hashSet.Comparer.GetHashCode(elem);
-                }
-                return h;
-            }
-
-            public bool Equals(HashSet<T> set1, HashSet<T> set2) {
-                if (set1 == set2)
-                    return true;
-                if (set1 == null || set2 == null)
-                    return false;
-                return set1.SetEquals(set2);
-            }
-        }
 
         void Extrude() {
             List<Vector3> vertexList = new List<Vector3>(mesh.vertices);
@@ -433,7 +442,7 @@ namespace ME {
             List<List<int>> extrudedFaces = new List<List<int>>();
             List<int> extrudedFacesIndex = new List<int>();
 
-            CacheUndoMeshBackup();
+            CacheUndoMeshBackup(EditType.Extrude);
             edgeOccurance.Clear();
             foreach (List<int> selectedFace in selectedFaces) {
                 for (int i = 0; i < 3; i++) {
@@ -523,7 +532,7 @@ namespace ME {
         }
 
         void HardenFaceEdge() {
-            CacheUndoMeshBackup();
+            CacheUndoMeshBackup(EditType.Harden);
             List<Vector3> vertexList = new List<Vector3>(mesh.vertices);
             List<Vector2> uvList = new List<Vector2>(mesh.uv);
             List<Vector3> normalList = new List<Vector3>(mesh.normals);
@@ -632,17 +641,18 @@ namespace ME {
 
                 if (min < 10.0f) {
                     if (min == dist1) {
-                        highLightedEdge.Add(Mathf.Min(mesh.triangles[3 * hitInfo.triangleIndex], mesh.triangles[3 * hitInfo.triangleIndex + 1]));
-                        highLightedEdge.Add(Mathf.Max(mesh.triangles[3 * hitInfo.triangleIndex], mesh.triangles[3 * hitInfo.triangleIndex + 1]));
+                        highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
+                        highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
                     }
                     else if (min == dist2) {
-                        highLightedEdge.Add(Mathf.Min(mesh.triangles[3 * hitInfo.triangleIndex], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
-                        highLightedEdge.Add(Mathf.Max(mesh.triangles[3 * hitInfo.triangleIndex], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
+                        highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex]);
+                        highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
                     }
                     else if (min == dist3) {
-                        highLightedEdge.Add(Mathf.Min(mesh.triangles[3 * hitInfo.triangleIndex + 1], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
-                        highLightedEdge.Add(Mathf.Max(mesh.triangles[3 * hitInfo.triangleIndex + 1], mesh.triangles[3 * hitInfo.triangleIndex + 2]));
+                        highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 1]);
+                        highLightedEdge.Add(mesh.triangles[3 * hitInfo.triangleIndex + 2]);
                     }
+                    highLightedEdge.Sort();
                     if (useGLDraw) {
                         GL.Begin(GL.LINES);
                         GL.Color(Color.red);
@@ -950,7 +960,7 @@ namespace ME {
 
             if (Event.current.type == EventType.used && holdingHandle == false) {
                 holdingHandle = true;
-                CacheUndoMeshBackup();
+                CacheUndoMeshBackup(EditType.Move);
             }
             else if (Event.current.isMouse && Event.current.button == 0 && Event.current.type != EventType.used && holdingHandle == true) {
                 holdingHandle = false;
@@ -995,7 +1005,7 @@ namespace ME {
             }
             if (Event.current.type == EventType.used && holdingHandle == false) {
                 holdingHandle = true;
-                CacheUndoMeshBackup();
+                CacheUndoMeshBackup(EditType.Rotate);
             }
             else if (Event.current.isMouse && Event.current.button == 0 && Event.current.type != EventType.used && holdingHandle == true) {
                 holdingHandle = false;
@@ -1042,7 +1052,7 @@ namespace ME {
             }
             if (Event.current.type == EventType.used && holdingHandle == false) {
                 holdingHandle = true;
-                CacheUndoMeshBackup();
+                CacheUndoMeshBackup(EditType.Scale);
             }
             else if (Event.current.isMouse && Event.current.button == 0 && Event.current.type != EventType.used && holdingHandle == true) {
                 holdingHandle = false;
@@ -1071,11 +1081,11 @@ namespace ME {
                     moveElement = false;
                     rotElement = false;
                 }
-                Texture undoableIcon = Resources.LoadAssetAtPath("Assets/Editor/MeshEditor/MeshEditorUI/undo.png", typeof(Texture)) as Texture;
-                Texture unundoableIcon = Resources.LoadAssetAtPath("Assets/Editor/MeshEditor/MeshEditorUI/unundoable.png", typeof(Texture)) as Texture;
-                if (GUILayout.Button(meshUndoList.Count == 0 ? unundoableIcon : undoableIcon)) {
-                    UndoMeshChanges();
-                }
+//                 Texture undoableIcon = Resources.LoadAssetAtPath("Assets/Editor/MeshEditor/MeshEditorUI/undo.png", typeof(Texture)) as Texture;
+//                 Texture unundoableIcon = Resources.LoadAssetAtPath("Assets/Editor/MeshEditor/MeshEditorUI/unundoable.png", typeof(Texture)) as Texture;
+//                 if (GUILayout.Button(meshUndoList.Count == 0 ? unundoableIcon : undoableIcon)) {
+//                     UndoMeshChanges();
+//                 }
             }, "Tools");
 
             if (moveElement) {
@@ -1268,19 +1278,22 @@ namespace ME {
             selObj.GetComponent<MeshCollider>().sharedMesh = mesh;
         }
 
-        void CacheUndoMeshBackup() {
+        void CacheUndoMeshBackup(EditType type) {
+            //
             Undo.RegisterUndo(mesh, "Mesh Changed");
             Mesh meshBackup/* = new Mesh()*/;
             meshBackup = (Mesh)Instantiate(mesh);
             meshBackup.name = mesh.name;
             if (meshUndoList.Count >= 10)
                 meshUndoList.RemoveAt(0);
-            meshUndoList.Add(meshBackup);
+            KeyValuePair<Mesh, EditType> pair = new KeyValuePair<Mesh, EditType>(meshBackup, type);
+            meshUndoList.Add(pair);
         }
 
         void UndoMeshChanges() {
             if (meshUndoList.Count == 0) return;
-            Mesh undoMeshBackup = meshUndoList[meshUndoList.Count - 1];
+            KeyValuePair<Mesh, EditType> undoPair = meshUndoList[meshUndoList.Count - 1];
+            Mesh undoMeshBackup = undoPair.Key;
             meshUndoList.RemoveAt(meshUndoList.Count - 1);
             mesh = (Mesh)Instantiate(undoMeshBackup);
             mesh.name = undoMeshBackup.name;
@@ -1290,14 +1303,28 @@ namespace ME {
 
             handleRot = selObj.transform.rotation;
             handleScale = Vector3.one;
-            undoMeshBackup = null;
-            selectedFaces.Clear();
-            selectedFacesIndex.Clear();
-            selectedVertices.Clear();
-            selectedEdges.Clear();
+
+            if (undoPair.Value == EditType.ChangeMat ||
+                undoPair.Value == EditType.Harden ||
+                undoPair.Value == EditType.Extrude) {
+                selectedFaces.Clear();
+                selectedFacesIndex.Clear();
+                selectedVertices.Clear();
+                selectedEdges.Clear();
+            }
+            else {
+                if (selectedFaces.Count != 0)
+                    handlePos = GetFacesAveragePosition(selectedFaces);
+                else if (selectedEdges.Count != 0)
+                    handlePos = GetFacesAveragePosition(selectedEdges);
+                else if (selectedVertices.Count != 0)
+                    handlePos = GetFaceAveragePosition(selectedVertices);
+                else
+                    handlePos = selObj.transform.position;
+            }
             UpdateMeshCollider();
             DestroyImmediate(undoMeshBackup);
-            Debug.Log("Undo Mesh Changes");
+            Debug.Log("Undo " + undoPair.Value);
         }
 
         void ChangeMaterial() {
@@ -1306,7 +1333,7 @@ namespace ME {
                 return;
             }
 
-            CacheUndoMeshBackup();
+            CacheUndoMeshBackup(EditType.ChangeMat);
             int subMeshIdx = 0;
             foreach (List<List<int>> realTriangleArray in realTriangleArrayWithSubMeshSeparated) {
                 for (int idx = 0; idx < realTriangleArray.Count; /*idx++*/) {
@@ -1376,7 +1403,7 @@ namespace ME {
 
         void ClearUndoList() {
             for (int i = 0; i < meshUndoList.Count; i++) {
-                DestroyImmediate(meshUndoList[i]);
+                DestroyImmediate(meshUndoList[i].Key);
             }
             meshUndoList.Clear();
         }
