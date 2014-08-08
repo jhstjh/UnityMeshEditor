@@ -73,7 +73,8 @@ namespace ME {
             Scale,
             Extrude,
             Harden,
-            ChangeMat
+            ChangeMat,
+            DelFace
         }
 
         class HashSetEqualityComparer<T> : IEqualityComparer<HashSet<T>> {
@@ -341,6 +342,13 @@ namespace ME {
                 MeshEditMode();
             }
 
+            if (evt.isKey) {
+                if (evt.keyCode == KeyCode.Delete) {
+                    DeleteFace();
+                    evt.Use();
+                }
+            }
+
             DrawRectSelection(evt);
             HandleFastSel(evt);
             if (rmbHold) {
@@ -431,7 +439,6 @@ namespace ME {
                 return true;
             }
         }
-
 
         void Extrude() {
             List<Vector3> vertexList = new List<Vector3>(mesh.vertices);
@@ -529,6 +536,25 @@ namespace ME {
             scaleElement = false;
 
             moveCoord = 3;
+        }
+
+        void DeleteFace() {
+            if (selectedFaces.Count == 0) return;
+
+            CacheUndoMeshBackup(EditType.DelFace);
+            List<int> triangleList = new List<int>(mesh.triangles);
+            for (int i = 0; i < selectedFacesIndex.Count; i++) {           
+                triangleList.RemoveRange(3 * selectedFacesIndex[i], 3);
+                for (int j = i; j < selectedFacesIndex.Count; j++) {
+                    if (selectedFacesIndex[i] < selectedFacesIndex[j])
+                        selectedFacesIndex[j]--;
+                }
+            }
+            selectedFaces.Clear();
+            selectedFacesIndex.Clear();
+            mesh.triangles = triangleList.ToArray();
+            mesh.Optimize();
+            UpdateMeshCollider();
         }
 
         void HardenFaceEdge() {
@@ -1279,7 +1305,6 @@ namespace ME {
         }
 
         void CacheUndoMeshBackup(EditType type) {
-            //
             Undo.RegisterUndo(mesh, "Mesh Changed");
             Mesh meshBackup/* = new Mesh()*/;
             meshBackup = (Mesh)Instantiate(mesh);
@@ -1295,18 +1320,18 @@ namespace ME {
             KeyValuePair<Mesh, EditType> undoPair = meshUndoList[meshUndoList.Count - 1];
             Mesh undoMeshBackup = undoPair.Key;
             meshUndoList.RemoveAt(meshUndoList.Count - 1);
-            mesh = (Mesh)Instantiate(undoMeshBackup);
-            mesh.name = undoMeshBackup.name;
+            mesh = /*(Mesh)Instantiate(*/undoMeshBackup/*)*/;
+            //mesh.name = undoMeshBackup.name;
             selObj.GetComponent<MeshFilter>().sharedMesh = mesh;
             selObj.GetComponent<MeshRenderer>().sharedMaterials = selObj.GetComponent<MeshRenderer>().sharedMaterials.Take(undoMeshBackup.subMeshCount).ToArray();
-            UpdateMeshCollider();
 
             handleRot = selObj.transform.rotation;
             handleScale = Vector3.one;
 
             if (undoPair.Value == EditType.ChangeMat ||
                 undoPair.Value == EditType.Harden ||
-                undoPair.Value == EditType.Extrude) {
+                undoPair.Value == EditType.Extrude ||
+                undoPair.Value == EditType.DelFace ) {
                 selectedFaces.Clear();
                 selectedFacesIndex.Clear();
                 selectedVertices.Clear();
@@ -1323,7 +1348,7 @@ namespace ME {
                     handlePos = selObj.transform.position;
             }
             UpdateMeshCollider();
-            DestroyImmediate(undoMeshBackup);
+            //DestroyImmediate(undoMeshBackup);
             Debug.Log("Undo " + undoPair.Value);
         }
 
