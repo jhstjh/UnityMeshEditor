@@ -72,7 +72,7 @@ namespace ME {
             {
                 EditorGUILayout.LabelField("Mesh Editor 1.0", EditorStyles.boldLabel);
                 //useGLDraw = GUILayout.Toggle(useGLDraw, "Use GL for highlighting");
-                GUILayout.Space(10);
+                //GUILayout.Space(10);
                 EditMode newMode = (EditMode)EditorGUILayout.EnumPopup("Edit Mode", editMode);
                 if (newMode != editMode) {
                     if (editMode == EditMode.Object)
@@ -81,10 +81,10 @@ namespace ME {
                         ExitMeshEditMode();
                     editMode = newMode;
                 }
-                editOnOriginalMesh = GUILayout.Toggle(editOnOriginalMesh, "Edit On Original Mesh");
+                editOnOriginalMesh = GUILayout.Toggle(editOnOriginalMesh, "Edit On All Instances");
                 GUILayout.Label("Notice: Mesh Editor will NOT modify the source file (e.g. \n" +
                                 "*.fbx) but just the imported mesh.\n" +
-                                "Select \"Edit On Original Mesh\" will affect all instances\n" +
+                                "Select \"Edit On All Instances\" will affect all instances\n" +
                                 "in scene, otherwise a new mesh copy will be created. You \n" +
                                 "have to save it before you can use it for a prefab.", GUILayout.Width(400));
                 GUILayout.Space(10);
@@ -294,6 +294,14 @@ namespace ME {
         void OnSceneGUI(SceneView scnView) {
             Event evt = Event.current;
             DrawToolBar();
+
+            if (Event.current.type == EventType.ValidateCommand) {
+                Debug.Log(Event.current.commandName);
+                if (Event.current.commandName == "UndoRedoPerformed") {
+                    Event.current.Use();
+                    UndoMeshChanges();
+                }
+            }
 
             if (Selection.activeGameObject == null && editMode != EditMode.Object) {
                 ExitMeshEditMode();
@@ -1261,6 +1269,7 @@ namespace ME {
         }
 
         void CacheUndoMeshBackup() {
+            Undo.RegisterUndo(mesh, "Mesh Changed");
             Mesh meshBackup/* = new Mesh()*/;
             meshBackup = (Mesh)Instantiate(mesh);
             meshBackup.name = mesh.name;
@@ -1288,7 +1297,7 @@ namespace ME {
             selectedEdges.Clear();
             UpdateMeshCollider();
             DestroyImmediate(undoMeshBackup);
-            Debug.Log("Undo");
+            Debug.Log("Undo Mesh Changes");
         }
 
         void ChangeMaterial() {
