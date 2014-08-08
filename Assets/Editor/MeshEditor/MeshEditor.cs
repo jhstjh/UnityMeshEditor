@@ -241,20 +241,6 @@ namespace ME {
                     selObj.GetComponent<MeshCollider>().sharedMesh = mesh;
             }
 
-            for (int i = 0; i < mesh.subMeshCount; i++) {
-                List<List<int>> realTriangleArray = new List<List<int>>();
-                List<int> subMeshTriangles = new List<int>(mesh.GetTriangles(i));
-
-                for (int j = 0; j < subMeshTriangles.Count; j += 3) {
-                    List<int> face = new List<int>();
-                    face.Add(subMeshTriangles[j]);
-                    face.Add(subMeshTriangles[j + 1]);
-                    face.Add(subMeshTriangles[j + 2]);
-                    realTriangleArray.Add(face);
-                }
-                realTriangleArrayWithSubMeshSeparated.Add(realTriangleArray);
-            }
-
             BoxCollider[] boxColliders = selObj.GetComponentsInChildren<BoxCollider>();
             foreach (BoxCollider boxCollider in boxColliders) {
                 if (boxCollider.enabled == true) {
@@ -294,15 +280,18 @@ namespace ME {
             }
 
             foreach (BoxCollider boxCollider in bColliders) {
-                boxCollider.enabled = true;
+                if (boxCollider != null)
+                    boxCollider.enabled = true;
             }
 
             foreach (SphereCollider sphereCollider in sColliders) {
-                sphereCollider.enabled = true;
+                if (sphereCollider != null)
+                    sphereCollider.enabled = true;
             }
 
             foreach (CapsuleCollider capsuleCollider in cColliders) {
-                capsuleCollider.enabled = true;
+                if (capsuleCollider != null)
+                    capsuleCollider.enabled = true;
             }
 
             bColliders.Clear();
@@ -342,7 +331,7 @@ namespace ME {
                 MeshEditMode();
             }
 
-            if (evt.isKey) {
+            if (evt.isKey && editMode != EditMode.Object) {
                 if (evt.keyCode == KeyCode.Delete) {
                     DeleteFace();
                     evt.Use();
@@ -745,7 +734,7 @@ namespace ME {
                     else if (min == dist3)
                         highLightedVertex = mesh.triangles[3 * hitInfo.triangleIndex + 2];
                     Handles.color = Color.red;
-                    Handles.DotCap(2453, selObj.transform.TransformPoint(mesh.vertices[highLightedVertex]), Quaternion.identity, 0.05f);
+                    Handles.DotCap(2453, selObj.transform.TransformPoint(mesh.vertices[highLightedVertex]), Quaternion.identity, 0.015f);
                 }
 
                 if (evt.type == EventType.MouseDown && highLightedVertex != -1) {
@@ -935,7 +924,7 @@ namespace ME {
                 Handles.color = new Color(1, 0, 1);
                 if (selectedVertices.Contains(i))
                     Handles.color = Color.yellow;
-                Handles.DotCap(10 + i, selObj.transform.TransformPoint(mesh.vertices[i]), Quaternion.identity, 0.03f);
+                Handles.DotCap(10 + i, selObj.transform.TransformPoint(mesh.vertices[i]), Quaternion.identity, 0.01f);
             }
         }
 
@@ -967,8 +956,11 @@ namespace ME {
                         if (!modifiedIndex.Contains(vertex)) {
                             // per-face move
                             Vector3 offset = Vector3.zero;
-                            if (moveCoord == 3)
-                                offset = selObj.transform.InverseTransformDirection(Vector3.Dot((handlePos - lastHandlePos), GetFaceNormal(vertexGroupList[0])) * GetFaceNormal(face));
+                            if (moveCoord == 3) {
+                                //offset = selObj.transform.InverseTransformDirection(Vector3.Dot((handlePos - lastHandlePos), GetFaceNormal(vertexGroupList[0])) * GetFaceNormal(face));
+                                Quaternion transRot = Quaternion.FromToRotation(GetFaceNormal(vertexGroupList[0]), GetFaceNormal(face));
+                                offset = selObj.transform.InverseTransformDirection(transRot * (handlePos - lastHandlePos));
+                            }
                             else {
                                 offset = selObj.transform.InverseTransformDirection(handlePos - lastHandlePos);
                                 // if it's parent has ununiformed scale then shit
@@ -1356,6 +1348,21 @@ namespace ME {
             if (selectedFaces.Count == 0) {
                 Debug.LogError("No Face Selected!");
                 return;
+            }
+
+            realTriangleArrayWithSubMeshSeparated.Clear();
+            for (int i = 0; i < mesh.subMeshCount; i++) {
+                List<List<int>> realTriangleArray = new List<List<int>>();
+                List<int> subMeshTriangles = new List<int>(mesh.GetTriangles(i));
+
+                for (int j = 0; j < subMeshTriangles.Count; j += 3) {
+                    List<int> face = new List<int>();
+                    face.Add(subMeshTriangles[j]);
+                    face.Add(subMeshTriangles[j + 1]);
+                    face.Add(subMeshTriangles[j + 2]);
+                    realTriangleArray.Add(face);
+                }
+                realTriangleArrayWithSubMeshSeparated.Add(realTriangleArray);
             }
 
             CacheUndoMeshBackup(EditType.ChangeMat);
