@@ -58,6 +58,11 @@ namespace MU {
         Material assignedMat = null;
         List<KeyValuePair<Mesh, EditType>> meshUndoList = new List<KeyValuePair<Mesh, EditType>>(10);
 
+        List<int> triangleList;
+        List<Vector3> verticesList;
+        List<Vector3> normalList;
+        List<Vector2> uvList;
+
         EditMode editMode = EditMode.Object;
 
         enum EditMode {
@@ -264,6 +269,11 @@ namespace MU {
                     capsuleCollider.enabled = false;
                 }
             }
+
+            triangleList = new List<int>(mesh.triangles);
+            normalList = new List<Vector3>(mesh.normals);
+            verticesList = new List<Vector3>(mesh.vertices);
+            uvList = new List<Vector2>(mesh.uv);
         }
 
         void ExitMeshEditMode() {
@@ -307,6 +317,12 @@ namespace MU {
             vertexMapping.Clear();
             selectedFacesIndex.Clear();
             meshReferenceCount.Clear();
+
+            triangleList.Clear();
+            normalList.Clear();
+            verticesList.Clear();
+            uvList.Clear();
+
             editMode = EditMode.Object;
         }
 
@@ -401,7 +417,7 @@ namespace MU {
             Repaint();
         }
 
-        bool AddNewFace(int vert1, int vert2, ref List<int> triangleList, List<int> selectedFace, int startNewIndex) {
+        bool AddNewFace(int vert1, int vert2/*, ref List<int> triangleList*/, List<int> selectedFace, int startNewIndex) {
             if (keepFaceTogether) {
                 HashSet<int> theEdge = new HashSet<int>();
                 theEdge.Add(Mathf.Min(selectedFace[vert1], selectedFace[vert2]));
@@ -430,10 +446,10 @@ namespace MU {
         }
 
         void Extrude() {
-            List<Vector3> vertexList = new List<Vector3>(mesh.vertices);
-            List<Vector2> uvList = new List<Vector2>(mesh.uv);
-            List<Vector3> normalList = new List<Vector3>(mesh.normals);
-            List<int> triangleList = new List<int>(mesh.triangles);
+            //List<Vector3> vertexList = new List<Vector3>(verticesList);
+            //List<Vector2> uvList = new List<Vector2>(mesh.uv);
+            //List<Vector3> normalList = new List<Vector3>(mesh.normals);
+            //List<int> triangleList = new List<int>(mesh.triangles);
 
             List<List<int>> extrudedFaces = new List<List<int>>();
             List<int> extrudedFacesIndex = new List<int>();
@@ -458,16 +474,16 @@ namespace MU {
             vertexMapping.Clear();
             int faceIdx = 0;
             foreach (List<int> selectedFace in selectedFaces) {
-                int startNewIndex = vertexList.Count;
+                int startNewIndex = verticesList.Count;
                 foreach (int vertIdx in selectedFace) {
                     if (!vertexMapping.ContainsKey(vertIdx) || !keepFaceTogether) {
-                        vertexList.Add(vertexList[vertIdx]);
+                        verticesList.Add(verticesList[vertIdx]);
                         normalList.Add(GetFaceNormal(selectedFace));
                         //normalList.Add(normalList[vertIdx]);
                         uvList.Add(uvList[vertIdx]);
-                        triangleList.Add(vertexList.Count - 1);
+                        triangleList.Add(verticesList.Count - 1);
                         if (keepFaceTogether)
-                            vertexMapping.Add(vertIdx, vertexList.Count - 1);
+                            vertexMapping.Add(vertIdx, verticesList.Count - 1);
                     }
                     else {
                         triangleList.Add(vertexMapping[vertIdx]);
@@ -476,9 +492,9 @@ namespace MU {
 
                 extrudedFacesIndex.Add((triangleList.Count) / 3 - 1);
 
-                AddNewFace(0, 1, ref triangleList, selectedFace, startNewIndex);
-                AddNewFace(1, 2, ref triangleList, selectedFace, startNewIndex);
-                AddNewFace(2, 0, ref triangleList, selectedFace, startNewIndex);
+                AddNewFace(0, 1/*, ref triangleList*/, selectedFace, startNewIndex);
+                AddNewFace(1, 2/*, ref triangleList*/, selectedFace, startNewIndex);
+                AddNewFace(2, 0/*, ref triangleList*/, selectedFace, startNewIndex);
 
                 List<int> extrudedFace = new List<int>();
 
@@ -509,7 +525,7 @@ namespace MU {
                 faceIdx++;
             }
 
-            mesh.vertices = vertexList.ToArray();
+            mesh.vertices = verticesList.ToArray();
             mesh.uv = uvList.ToArray();
             mesh.triangles = triangleList.ToArray();
             mesh.normals = normalList.ToArray();
@@ -531,7 +547,7 @@ namespace MU {
             if (selectedFaces.Count == 0) return;
 
             CacheUndoMeshBackup(EditType.DelFace);
-            List<int> triangleList = new List<int>(mesh.triangles);
+            //List<int> triangleList = new List<int>(mesh.triangles);
             for (int i = 0; i < selectedFacesIndex.Count; i++) {           
                 triangleList.RemoveRange(3 * selectedFacesIndex[i], 3);
                 for (int j = i; j < selectedFacesIndex.Count; j++) {
@@ -548,18 +564,18 @@ namespace MU {
 
         void HardenFaceEdge() {
             CacheUndoMeshBackup(EditType.Harden);
-            List<Vector3> vertexList = new List<Vector3>(mesh.vertices);
-            List<Vector2> uvList = new List<Vector2>(mesh.uv);
-            List<Vector3> normalList = new List<Vector3>(mesh.normals);
-            List<int> triangleList = new List<int>(mesh.triangles);
+            //List<Vector3> vertexList = new List<Vector3>(verticesList);
+            //List<Vector2> uvList = new List<Vector2>(mesh.uv);
+            //List<Vector3> normalList = new List<Vector3>(mesh.normals);
+            //List<int> triangleList = new List<int>(mesh.triangles);
 
             foreach (List<int> selectedFace in selectedFaces) {
                 foreach (int vertex in selectedFace) {
-                    vertexList.Add(vertexList[vertex]);
+                    verticesList.Add(verticesList[vertex]);
                     uvList.Add(uvList[vertex]);
                     //normalList.Add(uvList[vertex]);
                     normalList.Add(GetFaceNormal(selectedFace));
-                    triangleList.Add(vertexList.Count - 1);
+                    triangleList.Add(verticesList.Count - 1);
 
                 }
             }
@@ -573,7 +589,7 @@ namespace MU {
                 selectedFacesIndex.RemoveAt(0);
             }
 
-            mesh.vertices = vertexList.ToArray();
+            mesh.vertices = verticesList.ToArray();
             mesh.uv = uvList.ToArray();
             mesh.normals = normalList.ToArray();
             mesh.triangles = triangleList.ToArray();
@@ -590,17 +606,17 @@ namespace MU {
                         GL.PushMatrix();
                         GL.Begin(GL.TRIANGLES);
                         GL.Color(new Color(1, 0, 0, 0.5f));
-                        GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]));
-                        GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]));
-                        GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]));
+                        GL.Vertex(selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex]]));
+                        GL.Vertex(selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex + 1]]));
+                        GL.Vertex(selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex + 2]]));
                         GL.End();
                         GL.PopMatrix();
                     }
                     else {
-                        Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]),
-                                                                             selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]),
-                                                                             selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]),
-                                                                             selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]])},
+                        Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex]]),
+                                                                             selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex + 1]]),
+                                                                             selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex + 2]]),
+                                                                             selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex + 2]])},
                                                                              new Color(1, 0, 0, 0.5f), new Color(0, 0, 0, 1));
                     }
                 }
@@ -642,9 +658,9 @@ namespace MU {
             Ray worldRay = HandleUtility.GUIPointToWorldRay(evt.mousePosition);
             RaycastHit hitInfo;
             if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
-                Vector3 vert1 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]);
-                Vector3 vert2 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]);
-                Vector3 vert3 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]);
+                Vector3 vert1 = selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex]]);
+                Vector3 vert2 = selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex + 1]]);
+                Vector3 vert3 = selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex + 2]]);
 
                 float dist1 = HandleUtility.DistanceToLine(vert1, vert2);
                 float dist2 = HandleUtility.DistanceToLine(vert1, vert3);
@@ -671,15 +687,15 @@ namespace MU {
                     if (useGLDraw) {
                         GL.Begin(GL.LINES);
                         GL.Color(Color.red);
-                        GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]));
-                        GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]]));
+                        GL.Vertex(selObj.transform.TransformPoint(verticesList[highLightedEdge[0]]));
+                        GL.Vertex(selObj.transform.TransformPoint(verticesList[highLightedEdge[1]]));
                         GL.End();
                     }
                     else {
-                        Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]), 
-                                                                             selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[0]]), 
-                                                                             selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]]), 
-                                                                             selObj.transform.TransformPoint(mesh.vertices[highLightedEdge[1]])},
+                        Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(verticesList[highLightedEdge[0]]), 
+                                                                             selObj.transform.TransformPoint(verticesList[highLightedEdge[0]]), 
+                                                                             selObj.transform.TransformPoint(verticesList[highLightedEdge[1]]), 
+                                                                             selObj.transform.TransformPoint(verticesList[highLightedEdge[1]])},
                                                                              Color.red, Color.red);
                     }
                 }
@@ -714,9 +730,9 @@ namespace MU {
             Ray worldRay = HandleUtility.GUIPointToWorldRay(evt.mousePosition);
             RaycastHit hitInfo;
             if (Physics.Raycast(worldRay, out hitInfo) && hitInfo.collider.gameObject == selObj) {
-                Vector3 vert1 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex]]);
-                Vector3 vert2 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 1]]);
-                Vector3 vert3 = selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * hitInfo.triangleIndex + 2]]);
+                Vector3 vert1 = selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex]]);
+                Vector3 vert2 = selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex + 1]]);
+                Vector3 vert3 = selObj.transform.TransformPoint(verticesList[mesh.triangles[3 * hitInfo.triangleIndex + 2]]);
 
                 float dist1 = Vector3.Distance(hitInfo.point, vert1);
                 float dist2 = Vector3.Distance(hitInfo.point, vert2);
@@ -734,7 +750,7 @@ namespace MU {
                     else if (min == dist3)
                         highLightedVertex = mesh.triangles[3 * hitInfo.triangleIndex + 2];
                     Handles.color = Color.red;
-                    Handles.DotCap(2453, selObj.transform.TransformPoint(mesh.vertices[highLightedVertex]), Quaternion.identity, 0.04f);
+                    Handles.DotCap(2453, selObj.transform.TransformPoint(verticesList[highLightedVertex]), Quaternion.identity, 0.04f);
                 }
 
                 if (evt.type == EventType.MouseDown && highLightedVertex != -1) {
@@ -761,16 +777,16 @@ namespace MU {
                 if (useGLDraw) {
                     GL.Begin(GL.TRIANGLES);
                     GL.Color(new Color(1, 1, 0, 0.5f));
-                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[0]]));
-                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[1]]));
-                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]));
+                    GL.Vertex(selObj.transform.TransformPoint(verticesList[selectedFace[0]]));
+                    GL.Vertex(selObj.transform.TransformPoint(verticesList[selectedFace[1]]));
+                    GL.Vertex(selObj.transform.TransformPoint(verticesList[selectedFace[2]]));
                     GL.End();
                 }
                 else {
-                    Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[selectedFace[0]]), 
-                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedFace[1]]), 
-                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]]), 
-                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedFace[2]])},
+                    Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(verticesList[selectedFace[0]]), 
+                                                                         selObj.transform.TransformPoint(verticesList[selectedFace[1]]), 
+                                                                         selObj.transform.TransformPoint(verticesList[selectedFace[2]]), 
+                                                                         selObj.transform.TransformPoint(verticesList[selectedFace[2]])},
                                                                          new Color(1, 1, 0, 0.5f), new Color(0, 0, 0, 1));
                 }
             }
@@ -793,8 +809,8 @@ namespace MU {
                     if (editMode == EditMode.Vertex && mesh != null) {
                         if (!evt.shift)
                             selectedVertices.Clear();
-                        for (int i = 0; i < mesh.vertices.Length; i++) {
-                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[i])))) {
+                        for (int i = 0; i < verticesList.Count; i++) {
+                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[i])))) {
                                 if (selectedVertices.Contains(i))
                                     selectedVertices.Remove(i);
                                 else
@@ -808,11 +824,11 @@ namespace MU {
                     else if (editMode == EditMode.Face && mesh != null) {
                         if (!evt.shift)
                             selectedFaces.Clear();
-                        for (int i = 0; i < mesh.triangles.Length / 3; i++) {
-                            List<int> currentFace = new List<int> { mesh.triangles[3 * i], mesh.triangles[3 * i + 1], mesh.triangles[3 * i + 2] };
-                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i]]))) ||
-                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i + 1]]))) ||
-                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[mesh.triangles[3 * i + 2]])))) {
+                        for (int i = 0; i < triangleList.Count / 3; i++) {
+                            List<int> currentFace = new List<int> { triangleList[3 * i], triangleList[3 * i + 1], triangleList[3 * i + 2] };
+                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[triangleList[3 * i]]))) ||
+                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[triangleList[3 * i + 1]]))) ||
+                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[triangleList[3 * i + 2]])))) {
                                 if (selectedFacesIndex.Contains(i)) {
                                     selectedFacesIndex.Remove(i);
 
@@ -839,9 +855,9 @@ namespace MU {
                         List<List<int>> addedThisRound = new List<List<int>>();
                         List<List<int>> removedThisRound = new List<List<int>>();
                         for (int i = 0; i < mesh.triangles.Length / 3; i++) {
-                            List<int> edge1 = new List<int> { mesh.triangles[3 * i], mesh.triangles[3 * i + 1] };
-                            List<int> edge2 = new List<int> { mesh.triangles[3 * i + 1], mesh.triangles[3 * i + 2] };
-                            List<int> edge3 = new List<int> { mesh.triangles[3 * i + 2], mesh.triangles[3 * i] };
+                            List<int> edge1 = new List<int> { triangleList[3 * i], triangleList[3 * i + 1] };
+                            List<int> edge2 = new List<int> { triangleList[3 * i + 1], triangleList[3 * i + 2] };
+                            List<int> edge3 = new List<int> { triangleList[3 * i + 2], triangleList[3 * i] };
 
                             edge1.Sort();
                             edge2.Sort();
@@ -850,8 +866,8 @@ namespace MU {
                             List<List<int>> edges = new List<List<int>> { edge1, edge2, edge3 };
 
                             foreach (List<int> edge in edges) {
-                                if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[edge[0]]))) ||
-                                    selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(mesh.vertices[edge[1]])))) {
+                                if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[edge[0]]))) ||
+                                    selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[edge[1]])))) {
 
 
                                     bool removed = false;
@@ -904,15 +920,15 @@ namespace MU {
                 if (useGLDraw) {
                     GL.Begin(GL.LINES);
                     GL.Color(new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f));
-                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]));
-                    GL.Vertex(selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]]));
+                    GL.Vertex(selObj.transform.TransformPoint(verticesList[selectedEdge[0]]));
+                    GL.Vertex(selObj.transform.TransformPoint(verticesList[selectedEdge[1]]));
                     GL.End();
                 }
                 else {
-                    Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]), 
-                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedEdge[0]]), 
-                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]]), 
-                                                                         selObj.transform.TransformPoint(mesh.vertices[selectedEdge[1]])},
+                    Handles.DrawSolidRectangleWithOutline(new Vector3[] {selObj.transform.TransformPoint(verticesList[selectedEdge[0]]), 
+                                                                         selObj.transform.TransformPoint(verticesList[selectedEdge[0]]), 
+                                                                         selObj.transform.TransformPoint(verticesList[selectedEdge[1]]), 
+                                                                         selObj.transform.TransformPoint(verticesList[selectedEdge[1]])},
                                                                          new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f),
                                                                          new Color(228 / 255f, 172 / 255f, 121 / 255f, 1.0f));
                 }
@@ -920,11 +936,11 @@ namespace MU {
         }
 
         void HighlightVertices() {
-            for (int i = 0; i < mesh.vertices.Length; i++) {
+            for (int i = 0; i < verticesList.Count; i++) {
                 Handles.color = new Color(1, 0, 1);
                 if (selectedVertices.Contains(i))
                     Handles.color = Color.yellow;
-                Handles.DotCap(10 + i, selObj.transform.TransformPoint(mesh.vertices[i]), Quaternion.identity, 0.03f);
+                Handles.DotCap(10 + i, selObj.transform.TransformPoint(verticesList[i]), Quaternion.identity, 0.03f);
             }
         }
 
@@ -947,7 +963,7 @@ namespace MU {
             lastHandlePos = handlePos;
             handlePos = Handles.PositionHandle(handlePos, rot);
 
-            Vector3[] vertices = mesh.vertices;
+            //Vector3[] vertices = verticesList;
             HashSet<int> modifiedIndex = new HashSet<int>();
             bool updated = false;
             if (lastHandlePos != handlePos) {
@@ -968,7 +984,7 @@ namespace MU {
                             offset.x /= selObj.transform.localScale.x;
                             offset.y /= selObj.transform.localScale.y;
                             offset.z /= selObj.transform.localScale.z;
-                            vertices[vertex] += offset;
+                            verticesList[vertex] += offset;
                             modifiedIndex.Add(vertex);
                             updated = true;
                         }
@@ -984,7 +1000,7 @@ namespace MU {
                 holdingHandle = false;
             }
             if (updated) {
-                mesh.vertices = vertices;
+                mesh.vertices = verticesList.ToArray();
                 UpdateMeshCollider();
             }
         }
@@ -1003,7 +1019,7 @@ namespace MU {
             lastHandleRot = handleRot;
             handleRot = Handles.RotationHandle(handleRot, handlePos);
             //Debug.Log(handleRot);
-            Vector3[] vertices = mesh.vertices;
+            //Vector3[] vertices = verticesList;
             bool updated = false;
             HashSet<int> modifiedIndex = new HashSet<int>();
             if (lastHandleRot != handleRot) { // does not work!
@@ -1011,10 +1027,10 @@ namespace MU {
                 foreach (List<int> face in vertexGroupList) {
                     foreach (int vertex in face) {
                         if (!modifiedIndex.Contains(vertex)) {
-                            Vector3 centerToVert = selObj.transform.TransformPoint(vertices[vertex]) - handlePos;
+                            Vector3 centerToVert = selObj.transform.TransformPoint(verticesList[vertex]) - handlePos;
                             Quaternion oldToNewRot = handleRot * Quaternion.Inverse(lastHandleRot);
                             Vector3 newCenterToVert = oldToNewRot * centerToVert;
-                            vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos + newCenterToVert);
+                            verticesList[vertex] = selObj.transform.InverseTransformPoint(handlePos + newCenterToVert);
                             modifiedIndex.Add(vertex);
                             updated = true;
                         }
@@ -1029,7 +1045,7 @@ namespace MU {
                 holdingHandle = false;
             }
             if (updated) {
-                mesh.vertices = vertices;
+                mesh.vertices = verticesList.ToArray();
                 UpdateMeshCollider();
             }
         }
@@ -1047,7 +1063,7 @@ namespace MU {
 
             lastHandleScale = handleScale;
             handleScale = Handles.ScaleHandle(handleScale, handlePos, rot, HandleUtility.GetHandleSize(handlePos));
-            Vector3[] vertices = mesh.vertices;
+            //Vector3[] vertices = verticesList;
             bool updated = false;
 
 
@@ -1056,12 +1072,12 @@ namespace MU {
                 foreach (List<int> face in vertexGroupList) {
                     foreach (int vertex in face) {
                         if (!modifiedIndex.Contains(vertex)) {
-                            Vector3 centerToVert = vertices[vertex] - selObj.transform.InverseTransformPoint(handlePos);
+                            Vector3 centerToVert = verticesList[vertex] - selObj.transform.InverseTransformPoint(handlePos);
                             centerToVert.x *= (handleScale.x / lastHandleScale.x);
                             centerToVert.y *= (handleScale.y / lastHandleScale.y);
                             centerToVert.z *= (handleScale.z / lastHandleScale.z);
 
-                            vertices[vertex] = selObj.transform.InverseTransformPoint(handlePos) + centerToVert;
+                            verticesList[vertex] = selObj.transform.InverseTransformPoint(handlePos) + centerToVert;
                             modifiedIndex.Add(vertex);
                             updated = true;
                         }
@@ -1076,7 +1092,7 @@ namespace MU {
                 holdingHandle = false;
             }
             if (updated) {
-                mesh.vertices = vertices;
+                mesh.vertices = verticesList.ToArray();
                 UpdateMeshCollider();
             }
         }
@@ -1280,7 +1296,7 @@ namespace MU {
         Vector3 GetFaceAveragePosition(List<int> face) {
             Vector3 result = Vector3.zero;
             foreach (int idx in face) {
-                result += selObj.transform.TransformPoint(mesh.vertices[idx]);
+                result += selObj.transform.TransformPoint(verticesList[idx]);
             }
             return result / face.Count;
         }
@@ -1294,8 +1310,8 @@ namespace MU {
         }
 
         Vector3 GetFaceNormal(List<int> face) {
-            Vector3 edge1 = selObj.transform.TransformPoint(mesh.vertices[face[1]]) - selObj.transform.TransformPoint(mesh.vertices[face[0]]);
-            Vector3 edge2 = selObj.transform.TransformPoint(mesh.vertices[face[2]]) - selObj.transform.TransformPoint(mesh.vertices[face[1]]);
+            Vector3 edge1 = selObj.transform.TransformPoint(verticesList[face[1]]) - selObj.transform.TransformPoint(verticesList[face[0]]);
+            Vector3 edge2 = selObj.transform.TransformPoint(verticesList[face[2]]) - selObj.transform.TransformPoint(verticesList[face[1]]);
 
             return Vector3.Cross(edge1.normalized, edge2.normalized).normalized;
         }
