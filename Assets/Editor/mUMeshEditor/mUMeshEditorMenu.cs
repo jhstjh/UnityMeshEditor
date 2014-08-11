@@ -7,11 +7,11 @@
 using UnityEngine;
 using UnityEditor;
 using System.Collections;
-using ME;
+using MU;
 
-public class MeshEditorMenu : MonoBehaviour {
+public class mUMeshEditorMenu : MonoBehaviour {
 
-    [MenuItem("Window/Mesh Editor Panel", false, 0)]
+    [MenuItem("Window/mU Mesh Editor Panel", false, 0)]
     public static void ShowWindow() {
         EditorWindow window = EditorWindow.GetWindow(typeof(MeshEditor));
         window.minSize = new Vector2(350, 450);
