@@ -1074,12 +1074,35 @@ namespace MU {
                 foreach (List<int> face in vertexGroupList) {
                     foreach (int vertex in face) {
                         if (!modifiedIndex.Contains(vertex)) {
-                            Vector3 centerToVert = verticesList[vertex] - selObj.transform.InverseTransformPoint(handlePos);
-                            centerToVert.x *= (handleScale.x / lastHandleScale.x);
-                            centerToVert.y *= (handleScale.y / lastHandleScale.y);
-                            centerToVert.z *= (handleScale.z / lastHandleScale.z);
+                            // need coord transfrom and projection for world and face normal scale mode
 
-                            verticesList[vertex] = selObj.transform.InverseTransformPoint(handlePos) + centerToVert;
+                            if (scaleCoord == 0) {
+                                Vector3 centerToVert = verticesList[vertex] - selObj.transform.InverseTransformPoint(handlePos);
+                                centerToVert.x *= (handleScale.x / lastHandleScale.x);
+                                centerToVert.y *= (handleScale.y / lastHandleScale.y);
+                                centerToVert.z *= (handleScale.z / lastHandleScale.z);
+
+                                verticesList[vertex] = selObj.transform.InverseTransformPoint(handlePos) + centerToVert;
+                            }
+                            else if (scaleCoord == 1) {
+                                Vector3 centerToVert = selObj.transform.TransformPoint(verticesList[vertex]) - handlePos;
+                                centerToVert.x *= (handleScale.x / lastHandleScale.x);
+                                centerToVert.y *= (handleScale.y / lastHandleScale.y);
+                                centerToVert.z *= (handleScale.z / lastHandleScale.z);
+
+                                verticesList[vertex] = selObj.transform.InverseTransformPoint(handlePos + centerToVert);
+                            }
+                            else if (scaleCoord == 2) {
+                                Vector3 centerToVert = selObj.transform.TransformPoint(verticesList[vertex]) - handlePos;
+                                centerToVert = rot * centerToVert;
+                                centerToVert.x *= (handleScale.x / lastHandleScale.x);
+                                centerToVert.y *= (handleScale.y / lastHandleScale.y);
+                                centerToVert.z *= (handleScale.z / lastHandleScale.z);
+                                centerToVert = Quaternion.Inverse(rot) * centerToVert;
+
+                                verticesList[vertex] = selObj.transform.InverseTransformPoint(handlePos + centerToVert);
+                            }
+
                             modifiedIndex.Add(vertex);
                             updated = true;
                         }
