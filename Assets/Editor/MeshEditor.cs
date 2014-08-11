@@ -952,7 +952,7 @@ namespace MU {
                 rot = selObj.transform.rotation;
             else if (moveCoord == 1)
                 rot = Quaternion.identity;
-            else if (moveCoord == 2 || (moveCoord == 3 && editMode == EditMode.Face))
+            else if (moveCoord == 2)
                 rot = Quaternion.LookRotation(GetFaceNormal(vertexGroupList[0]));
             else if (moveCoord == 3 && editMode == EditMode.Face) {
                 rot = Quaternion.LookRotation(GetFaceNormal(vertexGroupList[0]));
@@ -964,6 +964,7 @@ namespace MU {
             handlePos = Handles.PositionHandle(handlePos, rot);
 
             //Vector3[] vertices = verticesList;
+            List<Vector3> vertices = new List<Vector3>(verticesList);
             HashSet<int> modifiedIndex = new HashSet<int>();
             bool updated = false;
             if (lastHandlePos != handlePos) {
@@ -984,7 +985,7 @@ namespace MU {
                             offset.x /= selObj.transform.localScale.x;
                             offset.y /= selObj.transform.localScale.y;
                             offset.z /= selObj.transform.localScale.z;
-                            verticesList[vertex] += offset;
+                            vertices[vertex] += offset;
                             modifiedIndex.Add(vertex);
                             updated = true;
                         }
@@ -1000,6 +1001,7 @@ namespace MU {
                 holdingHandle = false;
             }
             if (updated) {
+                verticesList = vertices;
                 mesh.vertices = verticesList.ToArray();
                 UpdateMeshCollider();
             }
@@ -1344,6 +1346,11 @@ namespace MU {
 
             handleRot = selObj.transform.rotation;
             handleScale = Vector3.one;
+
+            triangleList = new List<int>(mesh.triangles);
+            normalList = new List<Vector3>(mesh.normals);
+            verticesList = new List<Vector3>(mesh.vertices);
+            uvList = new List<Vector2>(mesh.uv);
 
             if (undoPair.Value == EditType.ChangeMat ||
                 undoPair.Value == EditType.Harden ||
