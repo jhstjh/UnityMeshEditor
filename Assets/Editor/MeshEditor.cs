@@ -151,7 +151,7 @@ namespace MU {
                 GUILayout.Label("Extrude Selected Faces");
                 keepFaceTogether = GUILayout.Toggle(keepFaceTogether, "Keep face together");
                 if (GUILayout.Button("Extrude", GUILayout.ExpandWidth(false))) {
-                    //Extrude();
+                    Extrude();
                 }
                 GUILayout.Space(10);
 
@@ -420,131 +420,150 @@ namespace MU {
             Repaint();
         }
 
-//         bool AddNewFace(int vert1, int vert2/*, ref List<int> triangleList*/, List<int> selectedFace, int startNewIndex) {
-//             if (keepFaceTogether) {
-//                 HashSet<int> theEdge = new HashSet<int>();
-//                 theEdge.Add(Mathf.Min(selectedFace[vert1], selectedFace[vert2]));
-//                 theEdge.Add(Mathf.Max(selectedFace[vert1], selectedFace[vert2]));
-// 
-//                 if (edgeOccurance[theEdge] > 1)
-//                     return false;
-// 
-//                 triangleList.Add(selectedFace[vert1]);
-//                 triangleList.Add(selectedFace[vert2]);
-//                 triangleList.Add(vertexMapping[selectedFace[vert1]]);
-//                 triangleList.Add(vertexMapping[selectedFace[vert2]]);
-//                 triangleList.Add(vertexMapping[selectedFace[vert1]]);
-//                 triangleList.Add(selectedFace[vert2]);
-//                 return true;
-//             }
-//             else {
-//                 triangleList.Add(selectedFace[vert1]);
-//                 triangleList.Add(selectedFace[vert2]);
-//                 triangleList.Add(startNewIndex + vert1);
-//                 triangleList.Add(startNewIndex + vert2);
-//                 triangleList.Add(startNewIndex + vert1);
-//                 triangleList.Add(selectedFace[vert2]);
-//                 return true;
-//             }
-//         }
-// 
-//         void Extrude() {
-//             //List<Vector3> vertexList = new List<Vector3>(verticesList);
-//             //List<Vector2> uvList = new List<Vector2>(mesh.uv);
-//             //List<Vector3> normalList = new List<Vector3>(mesh.normals);
-//             //List<int> triangleList = new List<int>(mesh.triangles);
-// 
-//             List<List<int>> extrudedFaces = new List<List<int>>();
-//             List<int> extrudedFacesIndex = new List<int>();
-// 
-//             CacheUndoMeshBackup(EditType.Extrude);
-//             edgeOccurance.Clear();
-//             foreach (List<int> selectedFace in selectedFaces) {
-//                 for (int i = 0; i < 3; i++) {
-//                     HashSet<int> edge = new HashSet<int>();
-//                     edge.Add(Mathf.Min(selectedFace[i], selectedFace[(i + 1) % 3]));
-//                     edge.Add(Mathf.Max(selectedFace[i], selectedFace[(i + 1) % 3]));
-// 
-//                     if (edgeOccurance.ContainsKey(edge)) {
-//                         edgeOccurance[edge]++;
-//                     }
-//                     else {
-//                         edgeOccurance.Add(edge, 1);
-//                     }
-//                 }
-//             }
-// 
-//             vertexMapping.Clear();
-//             int faceIdx = 0;
-//             foreach (List<int> selectedFace in selectedFaces) {
-//                 int startNewIndex = verticesList.Count;
-//                 foreach (int vertIdx in selectedFace) {
-//                     if (!vertexMapping.ContainsKey(vertIdx) || !keepFaceTogether) {
-//                         verticesList.Add(verticesList[vertIdx]);
-//                         normalList.Add(GetFaceNormal(selectedFace));
-//                         //normalList.Add(normalList[vertIdx]);
-//                         uvList.Add(uvList[vertIdx]);
-//                         triangleList.Add(verticesList.Count - 1);
-//                         if (keepFaceTogether)
-//                             vertexMapping.Add(vertIdx, verticesList.Count - 1);
-//                     }
-//                     else {
-//                         triangleList.Add(vertexMapping[vertIdx]);
-//                     }
-//                 }
-// 
-//                 extrudedFacesIndex.Add((triangleList.Count) / 3 - 1);
-// 
-//                 AddNewFace(0, 1/*, ref triangleList*/, selectedFace, startNewIndex);
-//                 AddNewFace(1, 2/*, ref triangleList*/, selectedFace, startNewIndex);
-//                 AddNewFace(2, 0/*, ref triangleList*/, selectedFace, startNewIndex);
-// 
-//                 List<int> extrudedFace = new List<int>();
-// 
-//                 if (!keepFaceTogether) {
-//                     extrudedFace.Add(startNewIndex);
-//                     extrudedFace.Add(startNewIndex + 1);
-//                     extrudedFace.Add(startNewIndex + 2);
-//                 }
-//                 else {
-//                     extrudedFace.Add(vertexMapping[selectedFace[0]]);
-//                     extrudedFace.Add(vertexMapping[selectedFace[1]]);
-//                     extrudedFace.Add(vertexMapping[selectedFace[2]]);
-//                 }
-//                 extrudedFaces.Add(extrudedFace);
-// 
-//                 triangleList.RemoveRange(3 * selectedFacesIndex[faceIdx], 3);
-//                 for (int i = faceIdx + 1; i < selectedFacesIndex.Count; i++) {
-//                     if (selectedFacesIndex[i] > selectedFacesIndex[faceIdx]) {
-//                         selectedFacesIndex[i]--;
-//                     }
-//                 }
-// 
-//                 for (int i = 0; i < extrudedFacesIndex.Count; i++) {
-//                     if (extrudedFacesIndex[i] > selectedFacesIndex[faceIdx]) {
-//                         extrudedFacesIndex[i]--;
-//                     }
-//                 }
-//                 faceIdx++;
-//             }
-// 
-//             mesh.vertices = verticesList.ToArray();
-//             mesh.uv = uvList.ToArray();
-//             mesh.triangles = triangleList.ToArray();
-//             mesh.normals = normalList.ToArray();
-// 
-//             //mesh.Optimize();
-//             UpdateMeshCollider();
-// 
-//             selectedFaces = extrudedFaces;
-//             selectedFacesIndex = extrudedFacesIndex;
-// 
-//             moveElement = true;
-//             rotElement = false;
-//             scaleElement = false;
-// 
-//             moveCoord = 3;
-//         }
+        bool AddNewFace(int vert1, int vert2, ref List<int> triangleList, List<int> selectedFace, int startNewIndex) {
+            if (keepFaceTogether) {
+                HashSet<int> theEdge = new HashSet<int>();
+                theEdge.Add(Mathf.Min(selectedFace[vert1], selectedFace[vert2]));
+                theEdge.Add(Mathf.Max(selectedFace[vert1], selectedFace[vert2]));
+
+                if (edgeOccurance[theEdge] > 1)
+                    return false;
+
+                triangleList.Add(selectedFace[vert1]);
+                triangleList.Add(selectedFace[vert2]);
+                triangleList.Add(vertexMapping[selectedFace[vert1]]);
+                triangleList.Add(vertexMapping[selectedFace[vert2]]);
+                triangleList.Add(vertexMapping[selectedFace[vert1]]);
+                triangleList.Add(selectedFace[vert2]);
+                return true;
+            }
+            else {
+                triangleList.Add(selectedFace[vert1]);
+                triangleList.Add(selectedFace[vert2]);
+                triangleList.Add(startNewIndex + vert1);
+                triangleList.Add(startNewIndex + vert2);
+                triangleList.Add(startNewIndex + vert1);
+                triangleList.Add(selectedFace[vert2]);
+                return true;
+            }
+        }
+
+        void Extrude() {
+            //List<Vector3> vertexList = new List<Vector3>(verticesList);
+            //List<Vector2> uvList = new List<Vector2>(mesh.uv);
+            //List<Vector3> normalList = new List<Vector3>(mesh.normals);
+            //List<int> triangleList = new List<int>(mesh.triangles);
+
+            List<List<int>> extrudedFaces = new List<List<int>>();
+            List<int> extrudedFacesIndex = new List<int>();
+
+            List<int> facesSubmeshIndex = new List<int>();
+            List<int> facesInSubmeshIndex = new List<int>();
+
+            int faceIdx = 0;
+            foreach (List<int> selectedFace in selectedFaces) {
+                int subMeshIdx = 0;
+                int inSubMeshIdx = selectedFacesIndex[faceIdx];
+                while (inSubMeshIdx * 3 >= triangleList[subMeshIdx].Count) {
+                    inSubMeshIdx -= triangleList[subMeshIdx].Count / 3;
+                    subMeshIdx++;
+                }
+                facesSubmeshIndex.Add(subMeshIdx);
+                facesInSubmeshIndex.Add(inSubMeshIdx);
+                faceIdx++;
+            }
+
+            CacheUndoMeshBackup(EditType.Extrude);
+            edgeOccurance.Clear();
+            foreach (List<int> selectedFace in selectedFaces) {
+                for (int i = 0; i < 3; i++) {
+                    HashSet<int> edge = new HashSet<int>();
+                    edge.Add(Mathf.Min(selectedFace[i], selectedFace[(i + 1) % 3]));
+                    edge.Add(Mathf.Max(selectedFace[i], selectedFace[(i + 1) % 3]));
+
+                    if (edgeOccurance.ContainsKey(edge)) {
+                        edgeOccurance[edge]++;
+                    }
+                    else {
+                        edgeOccurance.Add(edge, 1);
+                    }
+                }
+            }
+
+            vertexMapping.Clear();
+            faceIdx = 0;
+            foreach (List<int> selectedFace in selectedFaces) {
+                int startNewIndex = verticesList.Count;
+                foreach (int vertIdx in selectedFace) {
+                    if (!vertexMapping.ContainsKey(vertIdx) || !keepFaceTogether) {
+                        verticesList.Add(verticesList[vertIdx]);
+                        normalList.Add(GetFaceNormal(selectedFace));
+                        //normalList.Add(normalList[vertIdx]);
+                        uvList.Add(uvList[vertIdx]);
+                        triangleList[facesSubmeshIndex[faceIdx]].Add(verticesList.Count - 1);
+                        if (keepFaceTogether)
+                            vertexMapping.Add(vertIdx, verticesList.Count - 1);
+                    }
+                    else {
+                        triangleList[facesSubmeshIndex[faceIdx]].Add(vertexMapping[vertIdx]);
+                    }
+                }
+
+                extrudedFacesIndex.Add((triangleList.Count) / 3 - 1);
+
+                var tmpList = triangleList[facesSubmeshIndex[faceIdx]];
+                AddNewFace(0, 1, ref tmpList, selectedFace, startNewIndex);
+                AddNewFace(1, 2, ref tmpList, selectedFace, startNewIndex);
+                AddNewFace(2, 0, ref tmpList, selectedFace, startNewIndex);
+
+                List<int> extrudedFace = new List<int>();
+
+                if (!keepFaceTogether) {
+                    extrudedFace.Add(startNewIndex);
+                    extrudedFace.Add(startNewIndex + 1);
+                    extrudedFace.Add(startNewIndex + 2);
+                }
+                else {
+                    extrudedFace.Add(vertexMapping[selectedFace[0]]);
+                    extrudedFace.Add(vertexMapping[selectedFace[1]]);
+                    extrudedFace.Add(vertexMapping[selectedFace[2]]);
+                }
+                extrudedFaces.Add(extrudedFace);
+
+                triangleList[facesSubmeshIndex[faceIdx]].RemoveRange(3 * facesInSubmeshIndex[faceIdx], 3);
+                for (int i = faceIdx + 1; i < selectedFacesIndex.Count; i++) {
+                    if (selectedFacesIndex[i] > selectedFacesIndex[faceIdx] && facesSubmeshIndex[i] == facesSubmeshIndex[faceIdx]) {
+                        selectedFacesIndex[i]--;
+                    }
+                }
+
+                for (int i = 0; i < extrudedFacesIndex.Count; i++) {
+                    if (extrudedFacesIndex[i] > selectedFacesIndex[faceIdx] && facesSubmeshIndex[i] == facesSubmeshIndex[faceIdx]) {
+                        extrudedFacesIndex[i]--;
+                    }
+                }
+                faceIdx++;
+            }
+
+            mesh.vertices = verticesList.ToArray();
+            mesh.uv = uvList.ToArray();
+            for (int i = 0; i < triangleList.Count; i++) {
+                mesh.SetTriangles(triangleList[i].ToArray(), i);
+            }
+            mesh.normals = normalList.ToArray();
+
+            //mesh.Optimize();
+            UpdateMeshCollider();
+
+            selectedFaces = extrudedFaces;
+            selectedFacesIndex = extrudedFacesIndex;
+
+            moveElement = true;
+            rotElement = false;
+            scaleElement = false;
+
+            moveCoord = 3;
+        }
 
         void DeleteFace() {
             if (selectedFaces.Count == 0) return;
