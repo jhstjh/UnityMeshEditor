@@ -58,7 +58,8 @@ namespace MU {
         Material assignedMat = null;
         List<KeyValuePair<Mesh, EditType>> meshUndoList = new List<KeyValuePair<Mesh, EditType>>(10);
 
-        List<List<int>> triangleList;
+        List<int> triangleList;
+        List<List<int>> subTriangleList;
         List<Vector3> verticesList;
         List<Vector3> normalList;
         List<Vector2> uvList;
@@ -270,10 +271,11 @@ namespace MU {
                 }
             }
 
-            triangleList = new List<List<int>>();
+            subTriangleList = new List<List<int>>();
             for (int i = 0; i < mesh.subMeshCount; i++) {
-                triangleList.Add(new List<int>(mesh.GetTriangles(i)));
+                subTriangleList.Add(new List<int>(mesh.GetTriangles(i)));
             }
+            triangleList = new List<int>(mesh.triangles);
             normalList = new List<Vector3>(mesh.normals);
             verticesList = new List<Vector3>(mesh.vertices);
             uvList = new List<Vector2>(mesh.uv);
@@ -321,6 +323,7 @@ namespace MU {
             selectedFacesIndex.Clear();
             meshReferenceCount.Clear();
 
+            subTriangleList.Clear();
             triangleList.Clear();
             normalList.Clear();
             verticesList.Clear();
@@ -465,8 +468,8 @@ namespace MU {
             foreach (List<int> selectedFace in selectedFaces) {
                 int subMeshIdx = 0;
                 int inSubMeshIdx = selectedFacesIndex[faceIdx];
-                while (inSubMeshIdx * 3 >= triangleList[subMeshIdx].Count) {
-                    inSubMeshIdx -= triangleList[subMeshIdx].Count / 3;
+                while (inSubMeshIdx * 3 >= subTriangleList[subMeshIdx].Count) {
+                    inSubMeshIdx -= subTriangleList[subMeshIdx].Count / 3;
                     subMeshIdx++;
                 }
                 facesSubmeshIndex.Add(subMeshIdx);
@@ -501,19 +504,19 @@ namespace MU {
                         normalList.Add(GetFaceNormal(selectedFace));
                         //normalList.Add(normalList[vertIdx]);
                         uvList.Add(uvList[vertIdx]);
-                        triangleList[facesSubmeshIndex[faceIdx]].Add(verticesList.Count - 1);
+                        subTriangleList[facesSubmeshIndex[faceIdx]].Add(verticesList.Count - 1);
                         if (keepFaceTogether)
                             vertexMapping.Add(vertIdx, verticesList.Count - 1);
                     }
                     else {
-                        triangleList[facesSubmeshIndex[faceIdx]].Add(vertexMapping[vertIdx]);
+                        subTriangleList[facesSubmeshIndex[faceIdx]].Add(vertexMapping[vertIdx]);
                     }
                 }
 
-                extrudedFacesIndex.Add((triangleList[facesSubmeshIndex[faceIdx]].Count) / 3 - 1);
+                extrudedFacesIndex.Add((subTriangleList[facesSubmeshIndex[faceIdx]].Count) / 3 - 1);
                 extrudedFacesSubmesh.Add(facesSubmeshIndex[faceIdx]);
 
-                var tmpList = triangleList[facesSubmeshIndex[faceIdx]];
+                var tmpList = subTriangleList[facesSubmeshIndex[faceIdx]];
                 AddNewFace(0, 1, ref tmpList, selectedFace, startNewIndex);
                 AddNewFace(1, 2, ref tmpList, selectedFace, startNewIndex);
                 AddNewFace(2, 0, ref tmpList, selectedFace, startNewIndex);
@@ -532,7 +535,7 @@ namespace MU {
                 }
                 extrudedFaces.Add(extrudedFace);
 
-                triangleList[facesSubmeshIndex[faceIdx]].RemoveRange(3 * facesInSubmeshIndex[faceIdx], 3);
+                subTriangleList[facesSubmeshIndex[faceIdx]].RemoveRange(3 * facesInSubmeshIndex[faceIdx], 3);
                 for (int i = faceIdx + 1; i < selectedFacesIndex.Count; i++) {
                     if (selectedFacesIndex[i] > selectedFacesIndex[faceIdx] && facesSubmeshIndex[i] == facesSubmeshIndex[faceIdx]) {
                         facesInSubmeshIndex[i]--;
@@ -551,10 +554,11 @@ namespace MU {
 
             mesh.vertices = verticesList.ToArray();
             mesh.uv = uvList.ToArray();
-            for (int i = 0; i < triangleList.Count; i++) {
-                mesh.SetTriangles(triangleList[i].ToArray(), i);
+            for (int i = 0; i < subTriangleList.Count; i++) {
+                mesh.SetTriangles(subTriangleList[i].ToArray(), i);
             }
             mesh.normals = normalList.ToArray();
+            triangleList = new List<int>(mesh.triangles);
 
             //mesh.Optimize();
             UpdateMeshCollider();
@@ -584,7 +588,7 @@ namespace MU {
                     }
                     else break;
                 }
-                triangleList[subIdx].RemoveRange(3 * idxInSubmesh, 3);
+                subTriangleList[subIdx].RemoveRange(3 * idxInSubmesh, 3);
                 for (int j = i; j < selectedFacesIndex.Count; j++) {
                     if (selectedFacesIndex[i] < selectedFacesIndex[j])
                         selectedFacesIndex[j]--;
@@ -592,10 +596,11 @@ namespace MU {
             }
             selectedFaces.Clear();
             selectedFacesIndex.Clear();
-            for (int i = 0; i < triangleList.Count; i++) {
-                mesh.SetTriangles(triangleList[i].ToArray(), i);
+            for (int i = 0; i < subTriangleList.Count; i++) {
+                mesh.SetTriangles(subTriangleList[i].ToArray(), i);
             }
             mesh.Optimize();
+            triangleList = new List<int>(mesh.triangles);
             UpdateMeshCollider();
         }
 
@@ -613,8 +618,8 @@ namespace MU {
             foreach (List<int> selectedFace in selectedFaces) {
                 int subMeshIdx = 0;
                 int inSubMeshIdx = selectedFacesIndex[faceIdx];
-                while (inSubMeshIdx * 3 >= triangleList[subMeshIdx].Count) {
-                    inSubMeshIdx -= triangleList[subMeshIdx].Count / 3;
+                while (inSubMeshIdx * 3 >= subTriangleList[subMeshIdx].Count) {
+                    inSubMeshIdx -= subTriangleList[subMeshIdx].Count / 3;
                     subMeshIdx++;
                 }
                 facesSubmeshIndex.Add(subMeshIdx);
@@ -628,7 +633,7 @@ namespace MU {
                     verticesList.Add(verticesList[vertex]);
                     uvList.Add(uvList[vertex]);
                     normalList.Add(GetFaceNormal(selectedFace));
-                    triangleList[facesSubmeshIndex[faceIdx]].Add(verticesList.Count - 1);
+                    subTriangleList[facesSubmeshIndex[faceIdx]].Add(verticesList.Count - 1);
                 }
                 faceIdx++;
             }
@@ -639,7 +644,7 @@ namespace MU {
                         facesInSubmeshIndex[j]--;
                 }
 
-                triangleList[facesSubmeshIndex[0]].RemoveRange(3 * facesInSubmeshIndex[0], 3);
+                subTriangleList[facesSubmeshIndex[0]].RemoveRange(3 * facesInSubmeshIndex[0], 3);
                 selectedFacesIndex.RemoveAt(0);
                 facesSubmeshIndex.RemoveAt(0);
                 facesInSubmeshIndex.RemoveAt(0);
@@ -648,10 +653,10 @@ namespace MU {
             mesh.vertices = verticesList.ToArray();
             mesh.uv = uvList.ToArray();
             mesh.normals = normalList.ToArray();
-            for (int i = 0; i < triangleList.Count; i++) {
-                mesh.SetTriangles(triangleList[i].ToArray(), i);
+            for (int i = 0; i < subTriangleList.Count; i++) {
+                mesh.SetTriangles(subTriangleList[i].ToArray(), i);
             }
-
+            triangleList = new List<int>(mesh.triangles);
             ExitMeshEditMode();
         }
 
@@ -883,10 +888,10 @@ namespace MU {
                         if (!evt.shift)
                             selectedFaces.Clear();
                         for (int i = 0; i < triangleList.Count / 3; i++) {
-                            List<int> currentFace = new List<int> { triangleList[0][3 * i], triangleList[0][3 * i + 1], triangleList[0][3 * i + 2] };
-                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[triangleList[0][3 * i]]))) ||
-                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[triangleList[0][3 * i + 1]]))) ||
-                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[triangleList[0][3 * i + 2]])))) {
+                            List<int> currentFace = new List<int> { triangleList[3 * i], triangleList[3 * i + 1], triangleList[3 * i + 2] };
+                            if (selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[triangleList[3 * i]]))) ||
+                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[triangleList[3 * i + 1]]))) ||
+                                selectionRect.Contains(HandleUtility.WorldToGUIPoint(selObj.transform.TransformPoint(verticesList[triangleList[3 * i + 2]])))) {
                                 if (selectedFacesIndex.Contains(i)) {
                                     selectedFacesIndex.Remove(i);
 
@@ -913,9 +918,9 @@ namespace MU {
                         List<List<int>> addedThisRound = new List<List<int>>();
                         List<List<int>> removedThisRound = new List<List<int>>();
                         for (int i = 0; i < mesh.triangles.Length / 3; i++) {
-                            List<int> edge1 = new List<int> { triangleList[0][3 * i], triangleList[0][3 * i + 1] };
-                            List<int> edge2 = new List<int> { triangleList[0][3 * i + 1], triangleList[0][3 * i + 2] };
-                            List<int> edge3 = new List<int> { triangleList[0][3 * i + 2], triangleList[0][3 * i] };
+                            List<int> edge1 = new List<int> { triangleList[3 * i], triangleList[3 * i + 1] };
+                            List<int> edge2 = new List<int> { triangleList[3 * i + 1], triangleList[3 * i + 2] };
+                            List<int> edge3 = new List<int> { triangleList[3 * i + 2], triangleList[3 * i] };
 
                             edge1.Sort();
                             edge2.Sort();
@@ -1440,13 +1445,14 @@ namespace MU {
             handleRot = selObj.transform.rotation;
             handleScale = Vector3.one;
 
-            triangleList = new List<List<int>>();
+            subTriangleList = new List<List<int>>();
             for (int i = 0; i < mesh.subMeshCount; i++) {
-                triangleList.Add(new List<int>(mesh.GetTriangles(i)));
+                subTriangleList.Add(new List<int>(mesh.GetTriangles(i)));
             }
             normalList = new List<Vector3>(mesh.normals);
             verticesList = new List<Vector3>(mesh.vertices);
             uvList = new List<Vector2>(mesh.uv);
+            triangleList = new List<int>(mesh.triangles);
 
             if (undoPair.Value == EditType.ChangeMat ||
                 undoPair.Value == EditType.Harden ||
@@ -1558,11 +1564,11 @@ namespace MU {
             selectedFaces.Clear();
             selectedFacesIndex.Clear();
 
-            triangleList.Clear();
+            subTriangleList.Clear();
             for (int i = 0; i < mesh.subMeshCount; i++) {
-                triangleList.Add(new List<int>(mesh.GetTriangles(i)));
+                subTriangleList.Add(new List<int>(mesh.GetTriangles(i)));
             }
-
+            triangleList = new List<int>(mesh.triangles);
             UpdateMeshCollider();
             //editMode = EditMode.Object;
             //ExitMeshEditMode();
