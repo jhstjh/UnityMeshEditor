@@ -544,7 +544,7 @@ namespace MU {
                 }
 
                 for (int i = 0; i < extrudedFacesIndex.Count; i++) {
-                    if (extrudedFacesIndex[i] > selectedFacesIndex[faceIdx] && extrudedFacesSubmesh[i] == facesSubmeshIndex[faceIdx]) {
+                    if (extrudedFacesIndex[i] > selectedFacesIndex[faceIdx] /*&& extrudedFacesSubmesh[i] == facesSubmeshIndex[faceIdx]*/) {
                         //facesSubmeshIndex[i]--;
                         extrudedFacesIndex[i]--;
                     }

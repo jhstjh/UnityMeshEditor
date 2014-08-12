@@ -1,5 +1,5 @@
 ﻿/*  Mesh Editor for Unity
- *  Version 1.0
+ *  Version 1.11
  *  Created By Jihui Shentu
  *  2014 All Rights Reserved
  */
