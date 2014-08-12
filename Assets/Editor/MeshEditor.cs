@@ -456,6 +456,7 @@ namespace MU {
 
             List<List<int>> extrudedFaces = new List<List<int>>();
             List<int> extrudedFacesIndex = new List<int>();
+            List<int> extrudedFacesSubmesh = new List<int>();
 
             List<int> facesSubmeshIndex = new List<int>();
             List<int> facesInSubmeshIndex = new List<int>();
@@ -509,7 +510,8 @@ namespace MU {
                     }
                 }
 
-                extrudedFacesIndex.Add((triangleList.Count) / 3 - 1);
+                extrudedFacesIndex.Add((triangleList[facesSubmeshIndex[faceIdx]].Count) / 3 - 1);
+                extrudedFacesSubmesh.Add(facesSubmeshIndex[faceIdx]);
 
                 var tmpList = triangleList[facesSubmeshIndex[faceIdx]];
                 AddNewFace(0, 1, ref tmpList, selectedFace, startNewIndex);
@@ -533,12 +535,14 @@ namespace MU {
                 triangleList[facesSubmeshIndex[faceIdx]].RemoveRange(3 * facesInSubmeshIndex[faceIdx], 3);
                 for (int i = faceIdx + 1; i < selectedFacesIndex.Count; i++) {
                     if (selectedFacesIndex[i] > selectedFacesIndex[faceIdx] && facesSubmeshIndex[i] == facesSubmeshIndex[faceIdx]) {
+                        facesInSubmeshIndex[i]--;
                         selectedFacesIndex[i]--;
                     }
                 }
 
                 for (int i = 0; i < extrudedFacesIndex.Count; i++) {
-                    if (extrudedFacesIndex[i] > selectedFacesIndex[faceIdx] && facesSubmeshIndex[i] == facesSubmeshIndex[faceIdx]) {
+                    if (extrudedFacesIndex[i] > selectedFacesIndex[faceIdx] && extrudedFacesSubmesh[i] == facesSubmeshIndex[faceIdx]) {
+                        //facesSubmeshIndex[i]--;
                         extrudedFacesIndex[i]--;
                     }
                 }
