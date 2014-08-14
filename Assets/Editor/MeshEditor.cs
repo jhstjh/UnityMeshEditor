@@ -1,5 +1,5 @@
 /*  Mesh Editor for Unity
- *  Version 1.0
+ *  Version 1.11
  *  Created By Jihui Shentu
  *  2014 All Rights Reserved
  */
@@ -106,7 +106,7 @@ namespace MU {
         void OnGUI() {
             GUILayout.BeginVertical();
             {
-                EditorGUILayout.LabelField("mU Mesh Editor 1.0", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField("mU Mesh Editor 1.11", EditorStyles.boldLabel);
                 //useGLDraw = GUILayout.Toggle(useGLDraw, "Use GL for highlighting");
                 //GUILayout.Space(10);
                 EditMode newMode = (EditMode)EditorGUILayout.EnumPopup("Edit Mode", editMode);
